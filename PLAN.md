@@ -57,12 +57,20 @@ NG-RTS/
       player.ts             # Player state: resources, tech, visibility
       order.ts              # Order types + queue
       pathfind.ts           # A* pathfinding + flow-field movement
-      combat.ts             # damage, projectiles, attack logic
-      economy.ts            # harvesting, credits, silo capacity, power grid
+      combat.ts             # damage, projectiles, squads, cover, suppression
+      economy.ts            # harvesting, ore+gas, silo capacity, power grid
       ai.ts                 # skirmish AI (scripted behavior)
-      fog.ts                # fog-of-war visibility + exploration
+      fog.ts                # shroud + fog visibility + fog-hidden traps
       collision.ts          # spatial hashing + separation
-      tech.ts               # upgrade tree
+      tech.ts               # 3 tech tiers + upgrades
+      races.ts              # faction definitions: Forgefolk / Thornkin / Aliens (Chunk 11)
+      squads.ts             # infantry squad composition + reinforcement
+      cover.ts              # low/high cover damage reduction
+      traps.ts              # ground traps: bramble, tar, steam
+      hollow.ts             # underground burrow: minions + trap-rooms
+      controlpoints.ts      # capture points: trickle income + victory timer
+      heroes.ts             # unique hero units + abilities
+      powers.ts             # hero/race ability effects (steam-strike, root-grasp)
     render/
       renderer.ts           # Three.js scene, camera, lights, resize
       terrain.ts            # procedural ground + grid tiles
@@ -87,89 +95,134 @@ NG-RTS/
 
 ## 3. Game Design (the target we are building toward)
 
-### Inspiration map (explicit)
-This game is a **C&C / Red Alert core dressed in a Warcraft-style 3D view**. Each mechanic is
-credited so the blend is intentional and legible:
+### Design thesis
+NG-RTS is **not** a copy of any one game. It borrows *ideas* and re-invents them into an original
+world: **Forgefolk (Humans) vs Thornkin (Horde)**, with a planned third race — **Aliens** — added
+post-v1 (Chunk 11). Every pillar below names what inspired it and what original thing we actually
+built. If a mechanic can't be justified as a *re-invention*, it does not belong in the plan.
 
-| Mechanic | Source | How we use it |
-|---|---|---|
-| Credits + Ore/Gems harvested by **Harvesters** returning to **Refineries** | C&C / RA | Core economy (below) |
-| **MCV deploys into Construction Yard**; buildings bought from **Sidebar** and "pop-in" instantly | C&C / RA | No worker-construction; instant build flash |
-| **Power Plants + power grid**; low power slows production | C&C / RA | Growth limiter instead of a food cap |
-| **Shroud + Fog** (unexplored black persists; enemies hidden out of sight) | RA2 | Vision system |
-| **Allied vs Soviet** factions, tanks/infantry/vehicles, Tesla Coil defenses | RA | Faction/roster flavor |
-| **Superpowers**: Chronosphere (teleport) / Iron Curtain (invulnerability) | RA2 | Signature powers in Chunk 8 |
-| Sidebar **tabs** (Base/Defense/Infantry/Vehicle) with costs + build progress | C&C / RA | Main UI (Chunk 7) |
-| Top-down 3D, right-click orders, box-select, health bars, minimap, group keys | Warcraft II/III | View + control layer |
-| Fog of war per-unit sight | Warcraft III | Blended with shroud |
+### Inspiration ledger (what inspired us → what we built)
+| Inspired by | Our original mechanic |
+|---|---|
+| C&C / RA: harvesters, ore + refinery, credits | **Harvesters stay** — but they are faction-skinned: Forgefolk **Scrap-Lorries** (steam trucks) haul ore; Thornkin **Marrow-Tenders** (rooted mites) drain it. Same sim, different theme. |
+| C&C / RA: MCV deploys into a Construction Yard | **Asymmetric deploy**: Forgefolk deploy a **Foundry-Mule** into a **Foundry**; Thornkin deploy a **walking corrupted tree** — the **Worldroot** — which *roots itself* into the ground as a **Heartwood**. Same "deploy" order, wildly different look and build style. |
+| C&C / RA: sidebar tabs + instant pop-in builds | **Asymmetric building**: Forgefolk buy **prefabricated** structures from a sidebar and *drop* them instantly (crane flash). Thornkin *grow* buildings as **saplings** from the Heartwood over time, and can grow them **anywhere their Root-Network reaches** (global building). |
+| C&C / RA: power plants, low-power penalty | **Two power skins**: Forgefolk **Boilers** (steam); Thornkin **Bloodflowers** (lifeblood). One power grid sim. |
+| RA2: shroud + fog | Kept as the vision layer — but with **covert traps** (below) that stay hidden in fog until triggered. |
+| Warcraft II/III: top-down 3D, right-click, box-select, health bars, minimap | The view/control layer. |
+| Company of Heroes: squads, cover, garrison | **Infantry are squads** (4 models, reinforce-able), **low/high cover** reduces damage, **garrison** lets infantry enter buildings and defend from them. |
+| CoH: directional armor, suppression | **Rear-hit bonus** on tanks; **suppression** pins squads under heavy fire. |
+| Orcs Must Die: traps | **Traps** are ground-placed, fog-hidden, trigger on enemy feet: **Bramble Pits**, **Thorn Walls**, **Tar Spits** (slow). Both races build traps; Thornkin specialize. |
+| Dungeons / Overlord: dungeon building, minion hordes, an overlord commander | **The Hollow**: an underground burrow structure that *spawns cheap minion swarms* and *hosts trap-rooms*. The faction hero is an **Overlord/Warden** who commands those minions. |
+| Dawn of War: global build anywhere, hero wargear, squads | **Global building** (build anywhere via roots/mule) and **hero units** with abilities. |
+| StarCraft: race asymmetry, worker-economy, tech tiers, high-ground sight | **Fully asymmetric races**, a **two-resource economy** (Ore + Gas), **3 tech tiers**, and **line-of-sight cliffs** that block shots. |
+| Protoss/Zerg + Alien/Predator movies (eventual) | **Aliens** (Chunk 11): warp-in on **Psionic Ground** (Zerg creep × Protoss warp), regenerating **shields**, **cloaking** hunters (Predator), **parasite/mind-control** (Alien), **morph** upgrades (Zerg). |
 
-### Theme & scale
-- Two factions: **Allied (blue)** vs **Soviet (red)** — Red Alert-style. Skirmish matches.
-- Top-down 3D view (Warcraft-III-like camera), grid terrain, **shroud + fog of war**, base building.
-- Single skirmish map (128×128 tiles): each base has an ore field + a defensive pass; a center
-  contested region holds a second, richer gem field (Red-Alert flavor: ore + gems).
+### Setting & factions
+A frontier blighted by a spreading corruption. Two races fight over the dying land, and a third
+**invader** is planned (Chunk 11):
 
-### Economy (C&C / Red Alert style)
-- Single currency: **Credits**. No lumber, no food cap.
-- **Ore Fields** (crystal-like patches) scatter near bases; a rarer **Gem Field** sits at the
-  center. Fields deplete as harvested and slowly respawn (or new fields seed later).
-- **Harvester** (mobile vehicle) drives to a field, harvests (turns ore into a cargo load), drives
-  to a **Refinery**, and dumps it for credits into the silo. Refinery adds silo capacity.
-- **Power** replaces the population cap: each building consumes power; **Power Plants** supply it.
-  At power deficit, production (build/train) slows dramatically — the classic C&C "low power"
-  penalty. A unit cap exists only for performance, not as a design limiter.
+- **Forgefolk (Humans)** — industry, steam, and steel. Blue. Defensive, tech-heavy, prefab bases.
+- **Thornkin (Horde)** — living growth, blight, and hunger. Red. Aggressive, organic, swarm-heavy.
+- **Aliens (eventual)** — a hive-mind invader that warps in on psionic ground; shields, cloaking,
+  parasites. Green. (See dedicated section below.)
 
-### Building model (C&C / Red Alert style)
-- Player starts with an **MCV (Mobile Construction Vehicle)** that can **deploy** into a
-  **Construction Yard**.
-- Structures are bought from the **Sidebar** (tabs: Power / Base / Defense / Infantry / Vehicle),
-  placed by clicking a spot, and **build instantly** with a build flash + crane animation.
-  **No worker construction** — this is the C&C signature difference from Warcraft.
-- Buildings: Construction Yard (MCV), Power Plant, Refinery, Barracks (infantry), Weapons Factory
-  (vehicles), Defense: Tesla Coil / Flame Tower / Pillbox, and Wall segments.
+Single skirmish map (128×128): each base has an ore field + a gas vent; a center contested region
+holds richer ore + a second vent, plus 2-3 neutral **Control Points**.
 
-### Factions & roster (RA-flavored; symmetric-ish for skirmish)
-**Infantry** (trained at Barracks):
-- `rifleman` — cheap basic infantry.
-- `rocketeer` — anti-vehicle/anti-structure rocket infantry (slow, fragile).
+### Economy (harvesters kept, re-skinned)
+- **Ore** (scrap for Forgefolk / marrow for Thornkin) is the main currency. Harvesters drive to a
+  field, fill a cargo, return to their drop-off (Smeltery / Heartwood), and dump for credits into a
+  silo. Ore depletes and slowly respawns.
+- **Gas** is a rarer second resource from vents (**Steam-Vent** / **Bloodspring**), needed for
+  tech tiers and hero abilities (SC/C&C-gems flavor).
+- **Power** (Boilers / Bloodflowers) is the growth limiter: power deficit slows build/train.
+- A unit cap exists only for performance, not design.
 
-**Vehicles** (built at Weapons Factory):
-- `harvester` — economy unit (no combat).
-- `lighttank` — Allied signature: fast, lighter.
-- `heavytank` — Soviet signature: slow, armored.
-- `mammoth` — expensive heavy tank (late game).
+### Asymmetric building
+- **Forgefolk**: **Foundry-Mule** deploys → **Foundry** (their base). Sidebar buys **prefab**
+  structures that *drop instantly* with a crane flash. Strong, fast, but everything sits on one
+  footprint (no global build without a Mule nearby).
+- **Thornkin**: **Worldroot** (a corrupted tree that walks) **roots itself** → **Heartwood** (base).
+  Buildings **grow** as saplings over a growth timer, and the Heartwood's **Root-Network** lets
+  them sprout *anywhere on the map* it reaches — a forward-base/global-build advantage.
 
-**Defense structures** (auto-fire at nearby enemies):
-- `teslacoil` — Allied/Soviet Tesla Coil: high-damage single-target, power-hungry, charge time.
-- `flametower` — short-range AoE anti-infantry.
-- `pillbox` — cheap machine-gun defense.
-- `wall` — cheap obstacle, low HP, blocks pathing.
+### Races, roster & heroes (asymmetric)
+**Forgefolk (Humans):**
+- Squads: **Chainsaw-Men** (melee squads; saws chew through armor/buildings), **Riflemen**
+  (ranged squads with suppression).
+- Vehicles: **Scrap-Lorry** (harvester), **Forge-Tank** (steam tank, rear-armor bonus),
+  **Engineer** (reinforce/repair).
+- Defense: **Gun-Nest** (auto-fires), **Steam-Trap** (scalding vent — a trap), **Wall**.
+- Hero: **the Marshal** — a commander with a morale aura, an order system, and a **steam-strike**
+  ability (artillery call-in).
 
-**Superpowers** (Chunk 8, cooldown-based):
-- Allied **Chronosphere**: teleports a group of your units across the map.
-- Soviet **Iron Curtain**: makes a group briefly invulnerable.
+**Thornkin (Horde):**
+- Squads: **Axe-Thralls** (melee squads), **Spore-Shamans** (ranged, damage-over-time).
+- Monsters: **Bark-Behemoth** (giant tree-golem), **Blight-Grub** (cheap swarm minion).
+- Harvest: **Marrow-Tender** (harvester).
+- Defense: **Thorn-Briar** (spiked growth), **Bramble Pit / Tar Spit** (traps), **Bone-Wall**.
+- Hero: **the Warden / Overlord** — commands the Hollow's minions, sets trap-rooms, and has a
+  **root-grasp** ability (root an enemy in place).
+
+### Third faction — Aliens (eventual, post-v1; full detail here, built in Chunk 11)
+A hive-mind invader from beyond. Draws on **Protoss** (warp-in, shields, psi-tech), **Zerg**
+(creep, swarm, morph), the movie **Alien** (hive, queen, acid, parasites) and **Predator**
+(cloaking, plasma, hunting). Original blend:
+
+- **Build**: **Hive-Nexus** (base) spreads **Psionic Ground** (creep). Structures **warp-in**
+  (teleport flash) but *only on Psionic Ground* — global-build within the field. Protoss warp-in
+  × Zerg creep.
+- **Economy**: **Harvester-Drones** collect **Bio-Ore** + **Resonance** (gas from geysers), dump
+  at **Fungal-Refinery**. Power: **Psi-Resonators** → **Psi-Power**.
+- **Units**: `warrior-drone` (fast twin-blade melee), `hunter-stalker` (**cloaks** when idle,
+  plasma-caster, bonus vs isolated targets), `acid-spitter` (ranged acid DoT), `hive-swarm` (cheap
+  melee swarm), `parasite-larvae` (latches on an enemy, drains it, **briefly mind-controls** it).
+- **Defense/traps**: `spore-nest` (auto-fire), `acid-pool` (trap, DoT), `bio-wall`; traps
+  **Spore-Mines** (burst) and **Acid-Pools** (DoT) — fog-hidden like Orcs-Must-Die.
+- **Unique mechanics**: regenerating **shields** (layer over HP), **cloaking**, **Psionic Ground**
+  build restriction + spread, **parasite/mind-control**, **morph** (drones upgrade at tech tiers).
+- **Hero**: **the Matriarch** (Queen) — commands the hive/swarm, **Acid-Ward** AoE,
+  **Psionic Command** (mind-control), **Hive-Instinct** (briefly cloaks nearby drones).
+- **Tech**: 3 tiers gated by **Resonance** (Warp-Tech).
+
+### Shared original systems
+1. **Squads & cover** (CoH): infantry squads of 3-4, reinforceable; low/high cover reduces
+   damage; **garrison** buildings (enter & defend).
+2. **Directional armor + suppression** (CoH): tanks take bonus damage from rear; heavy fire
+   *pins* squads (slower movement/fire).
+3. **Traps** (OMD): ground-placed, fog-hidden, trigger on enemy feet. Thornkin specialize;
+   Forgefolk have Steam-Traps.
+4. **The Hollow** (Dungeons/Overlord): burrow building that spawns minions and hosts trap-rooms;
+   the hero commands them. Buildable by both races (Thornkin stronger).
+5. **Control Points** (CoH/DoW): neutral points capture → trickle income + victory timer.
+6. **Global building** (DoW): Thornkin via Root-Network; Forgefolk via deploying Mules.
+7. **Tech tiers** (SC/WC3): 3 tiers unlock units/upgrades; Gas gates the higher tiers.
+8. **Line-of-sight cliffs** (SC): elevated tiles block shots; units on high ground shoot down.
+9. **Shroud + fog** (RA2/WC3): unexplored black persists; enemies hidden out of sight.
+10. **Heroes** (DoW/WC3/CoH): one unique hero per race with abilities, revive-able.
 
 ### Core RTS systems (must all exist by final chunk)
-1. Fixed-timestep simulation (deterministic; render interpolates).
-2. Grid pathfinding (A*), separation steering, no unit overlap.
-3. **Shroud + fog**: unexplored tiles stay black (shroud); explored-but-not-seen tiles show
-   terrain but hide enemy units (fog). Units visible only when an allied unit/building has sight.
-4. Selection: click unit, box-select groups, right-click orders (move/attack/harvest/build).
-5. Order queue: waypoints, move, attack-move, harvest, deploy, build placement.
-6. Combat: attack declarations, projectile travel, damage, death, corpse decay.
-7. **Power grid** (supply/consumption, low-power slowdown) + **credit economy** + silo capacity.
-8. **Sidebar build system**: tabs, costs, build times, instant placement.
-9. Skirmish AI: build order script (MCV→power→refinery→harvester→barracks→army) + army-push.
-10. Win/lose: destroy opponent's **Construction Yard** (or all buildings) → victory/defeat overlay.
-11. UI: resource/sidebar panel, minimap w/ shroud, health bars, unit portraits (procedural).
+1. Fixed-timestep deterministic sim; render interpolates.
+2. A* pathfinding, separation steering, no overlap.
+3. Shroud + fog, with **fog-hidden traps**.
+4. Selection: click, box-select, right-click orders (move/attack/harvest/build/deploy).
+5. Order queue: move, attack-move, harvest, deploy, build placement, garrison, trap-place.
+6. Combat: squads, cover, directional armor, suppression, projectiles, death.
+7. Economy: Ore + Gas, harvesters, silo, power grid, low-power penalty.
+8. Asymmetric build: sidebar prefab-drop (Forgefolk) vs sapling growth + Root-Network (Thornkin).
+9. **The Hollow** (minions + trap-rooms), **traps**, **control points**.
+10. Heroes with abilities; 3 tech tiers; skirmish AI; win/lose (destroy enemy base / hold points).
+11. UI: sidebar, minimap w/ shroud, squad/health bars, hero panel, portraits (procedural).
 
-### Control scheme (Warcraft right-click + C&C sidebar)
-- **Left-click**: select unit(s). Drag = box select. Click building = select.
-- **Right-click**: context order (move / attack / harvest / deploy / build on placement ghost).
-- **Sidebar**: click a structure to enter placement mode; click map to build; `Esc` cancels.
-- **Keyboard**: `A` attack-move, `H` harvest, `Esc` deselect, `Ctrl+number` groups,
-  `F1` select all army, `+/-` zoom, `P` pause, `Space` select all idle harvesters.
-- Camera: WASD pan, edge-pan, mouse-wheel zoom, drag middle/right.
+### Control scheme
+- **Left-click**: select; drag = box-select; click building = select.
+- **Right-click**: context order (move / attack / harvest / deploy / build / garrison).
+- **Sidebar**: click structure → placement mode; click map to build; `Esc` cancels.
+- **Hero/ability keys**: `Q/W/E` cast abilities on selection.
+- **Keyboard**: `A` attack-move, `H` harvest, `T` trap-place, `Esc` deselect, `Ctrl+number` groups,
+  `F1` select all army, `Space` select idle harvesters, `+/-` zoom, `P` pause.
+- Camera: WASD pan, edge-pan, wheel zoom, middle-drag pan.
 
 ---
 
@@ -273,8 +326,8 @@ Steps:
 1. `src/render/renderer.ts`: Three.js scene, orthographic top-down camera, ambient + directional
    light, `renderer.setAnimationLoop` driving `game.step` + interpolated render.
 2. `src/render/terrain.ts`: build ground from grid — colored quads per tile type (grass,
-   forest=trees as cone meshes, water=blue plane, gold mine=rocky mound). Use `CanvasTexture`
-   with a procedural grass noise texture. Low-poly, instance-meshed for perf.
+   forest=trees as cone meshes, water=blue plane, ore/gas fields=crystal mounds). Use
+   `CanvasTexture` with a procedural grass noise texture. Low-poly, instance-meshed for perf.
 3. `src/render/unitmesh.ts`: build low-poly units/buildings from primitives (box bodies + cone
    heads) tinted per team. A `MeshRegistry` maps entityId→mesh, updated each frame from sim
    (positions interpolated between last two ticks).
@@ -283,7 +336,8 @@ Steps:
 5. `src/render/selection.ts`: draw a selection ring/outline under selected units (flat ring mesh);
    highlight selected buildings with emissive edge.
 6. `src/main.ts`: wire input (pointer events → world raycast; click/box select) and call into
-   game. Add a dev "spawn two peasants" debug command to see movement (temporary; remove in Chunk 9).
+   game. Add a dev "spawn two harvesters" (Forgefolk Scrap-Lorry + Thornkin Marrow-Tender)
+   debug command to see movement (temporary; remove in Chunk 9).
 7. Headless tests unaffected; add a render smoke test that builds a scene in Node with
    `headlessgl`? — **skip**; instead assert `buildScene()` returns non-null counts in a unit test
    that doesn't require a GL context (mock minimal). Keep render logic thin so it's testable.
@@ -298,149 +352,150 @@ screenshot if a headless renderer is available, else logs.)
 **Goal:** Full mouse/keyboard control: select, box-select, right-click orders.
 
 Steps:
-1. `src/sim/order.ts`: `Order` = union type (Move, Gather, Attack, Build, Stop, Patrol). Unit has
-   `orderQueue`. Right-click sets context order based on what's under cursor (enemy unit → attack;
-   gold mine/tree → gather; empty ground → move; building → build order via placement ghost).
-2. `src/render/hud.ts` (start): DOM overlay for selection readout (name, hp, resources) — minimal
+1. `src/sim/order.ts`: `Order` = union type (Move, Harvest, Attack, Build, Stop, Deploy, Garrison,
+   Trap). Unit has `orderQueue`. Right-click sets context order based on cursor (enemy unit →
+   attack; ore/gas field → harvest; empty ground → move; Mule/Worldroot on clear ground → deploy;
+   garrisonable building → garrison; building → build placement ghost).
+2. `src/render/hud.ts` (start): DOM overlay for selection readout (name, hp, ore/gas) — minimal
    now, full in Chunk 7.
 3. Input pipeline: raycast to pick entity/tile; drag threshold distinguishes click vs box-select;
-   `A` sets attack-move; `Esc` deselects; `Ctrl+num` save/recall groups (store unit ids).
+   `A` sets attack-move; `Esc` deselects; `Ctrl+num` save/recall groups (store unit ids); `T` trap.
 4. Headless tests: order queue executes in order; move order reaches goal within tolerance;
-   attack order acquires target; gather order sets worker state.
+   attack order acquires target; harvest order sets harvester state; deploy order converts the
+   Mule/Worldroot.
 
 **DoD:** In browser: left-click selects, drag box-selects multiple, right-click moves unit to
-ground, right-click enemy attacks, right-click tree/mine gathers (worker moves & starts).
-Build clean, tests green.
+ground, right-click enemy attacks, right-click ore/gas field harvests (harvester moves & starts),
+right-click Mule/Worldroot on ground deploys. Build clean, tests green.
 
 ---
 
-### CHUNK 5 — Economy: harvesters, refineries, sidebar build, power grid
-**Goal:** Full C&C-style economy loop + instant sidebar construction + power management.
+### CHUNK 5 — Economy & asymmetric building (harvesters, ore+gas, power, race build styles)
+**Goal:** Full two-race economy (harvesters, two resources, power) + both build systems + production.
 
 Steps:
-1. `src/sim/economy.ts`: Harvester states (idle→drivingToField→harvesting→drivingToRefinery→
-   dumping). Ore/Gem fields hold N credits and deplete as harvested (slowly respawn). Refinery
-   receives cargo → credits into silo; silo has capacity (full silo stops dumping). Carry
-   capacity, harvest rate, dump rate constants in `config.ts`.
-2. `src/sim/building.ts` + placement: `building.place(blueprint)` — ghost preview, valid/invalid
-   tiles, red/green ghost. Buildings "pop in" after a sidebar **build time** with a build flash;
-   no worker construction (C&C style). MCV has a `deploy` order converting it into a Construction
-   Yard (deployable anywhere on clear ground).
-3. `src/sim/tech.ts` → power grid: each building has powerConsumed; Power Plants provide power.
-   Track powerProduced vs powerConsumed per player; deficit slows build/train rates (low-power
-   penalty). Buildings under construction are non-functional until the build timer ends.
-4. Production: Barracks trains infantry; Weapons Factory builds vehicles — each has a **queue**
-   with sequential build times (C&C-style queue). Costs in credits.
-5. `src/render/unitmesh.ts`: building meshes + pop-in build flash; ghost preview mesh; harvester
-   cargo visual when carrying ore.
-6. `src/render/hud.ts` (start): resource panel (credits), power bar (produced/consumed), and a
-   minimal sidebar with the Power/Base/Defense/Infantry/Vehicle tabs. Full UI in Chunk 7.
-7. Headless tests: harvester harvest/dump cycle yields correct credits; silo capacity blocks
-   dumping; build timer completes → building usable; power deficit slows production; MCV deploy
-   becomes a Construction Yard.
+1. `src/sim/economy.ts`: Harvester states (idle→driveToField→harvest→driveToDropoff→dump). Ore
+   fields and Gas vents hold reserves and deplete (slowly respawn). Drop-off (Smeltery/Heartwood)
+   receives cargo → ore into silo; silo capacity blocks dumping. Carry, harvest, dump rates in
+   `config.ts`. Gas is gated for tech/hero (Chunk 8).
+2. `src/sim/races.ts` + `src/sim/building.ts`: faction definitions. **Forgefolk**: Foundry-Mule
+   `deploy` → **Foundry**; sidebar buys **prefab** structures that *drop instantly* (crane flash,
+   short build timer). **Thornkin**: Worldroot (walking tree) `deploy` → **Heartwood**; buildings
+   *grow* as saplings over a longer timer; **Root-Network** lets them sprout anywhere within its
+   reach (global build). `building.place(blueprint)` ghost preview, valid/invalid tiles, red/green.
+3. `src/sim/tech.ts` → power grid: each building powerConsumed; Boilers/Bloodflowers supply.
+   Deficit slows build/train (low-power penalty). Unfinished buildings are non-functional.
+4. Production: Forgefolk **Barracks** trains infantry squads; **Weapons Factory** builds vehicles.
+   Thornkin **Heartwood** grows squads; **Behemoth-Pit** grows monsters. Each has a **queue**
+   with sequential build times.
+5. `src/render/unitmesh.ts`: prefab drop flash vs sapling growth scaling; ghost preview; harvester
+   cargo visual; walking-tree deploy animation.
+6. `src/render/hud.ts` (start): ore+gas panel, power bar, race-aware sidebar tabs. Full UI in Chunk 7.
+7. Headless tests: harvester cycle yields correct ore; silo blocks dumping; gas gating; power
+   deficit slows production; Mule deploy → Foundry and Worldroot deploy → Heartwood; prefab vs
+   growth timers; Root-Network build range respected.
 
-**DoD:** In browser: deploy MCV→build Power Plant/Refinery→harvester gathers credits→build
-Barracks/Weapons Factory→train/build units. Power bar and credits correct. Tests green, build clean.
+**DoD:** Both races' economy works in browser: deploy base (Mule or Worldroot), harvest ore+gas,
+build (prefab drop vs sapling growth), train/build units. Power + resources correct. Tests green,
+build clean.
 
 ---
 
-### CHUNK 6 — Combat, projectiles, death, shroud + fog of war
-**Goal:** Units fight, die, and RA2-style shroud/fog works.
+### CHUNK 6 — Combat, squads & cover, traps, death, shroud + fog
+**Goal:** Units fight as squads, cover/traps matter, shroud/fog hides the map.
 
 Steps:
-1. `src/sim/combat.ts`: `attack` order — approach to range, face target, fire rate, damage with
-   armor (basic armor/weapon tiers from `tech.ts`). Projectiles as sim entities with travel time;
-   on arrival apply damage. Tesla Coil charges then fires a high-damage bolt; Flame Tower applies
-   short-range AoE; Pillbox rapid-fires.
-2. `src/sim/fog.ts`: per-player **shroud + fog** grid. Each unit/building has `sightRadius`; tiles
-   seen within radius are **visible**; once seen, stay **explored** (shroud cleared permanently).
-   Enemy units hidden unless the tile they occupy is currently visible (fog). Fog data feeds
-   render (hide meshes) and selection (can't select hidden).
-3. `src/render/projectiles.ts` + `fx.ts`: visual projectile pool (shell tracers, tesla bolts),
-   hit sparks, death fade + wreck decal, build flashes.
-4. `src/sim/ai.ts` (start): scripted Soviet opponent — build order (MCV→power→refinery→
-   harvesters→weapons factory→army) then attack-move to Allied base. Keep simple & deterministic.
-5. Win/lose: `game.checkEnd()` — player with 0 Construction Yard buildings (or all buildings
-   dead) loses; show overlay via HUD.
-6. Headless tests: DPS math correct; projectile arrival applies damage once; dead unit removed;
-   fog hides unit (visibility query); shroud persists after leaving; AI builds then attacks.
+1. `src/sim/combat.ts`: `attack` order — approach to range, face target, fire rate, armor/weapon
+   tiers. Projectiles travel then apply damage. **Rear-hit bonus** for vehicles (directional
+   armor); **suppression** pins squads (slower move/fire) under heavy fire.
+2. `src/sim/squads.ts` + `src/sim/cover.ts`: infantry are **squads** of 3-4 models sharing an HP
+   pool; squads **reinforce** at a Barracks/Heartwood (cost per man). **Low/high cover** reduces
+   incoming damage; **garrison** lets infantry enter buildings and fire from them.
+3. `src/sim/traps.ts`: ground **traps** placed by units, **hidden in fog** until triggered, fire
+   on enemy feet: **Bramble Pit** (damage+slow), **Tar Spit** (slow), **Steam-Trap** (damage,
+   Forgefolk). Thornkin get more trap types.
+4. `src/sim/fog.ts`: per-player **shroud + fog**; explored persists (shroud cleared), enemies
+   hidden unless currently visible (fog). Fog hides traps too. Feeds render + selection.
+5. `src/render/projectiles.ts` + `fx.ts`: shell tracers, build flashes, trap-trigger effects,
+   death fade + wreck decal.
+6. `src/sim/ai.ts` (start): scripted Thornkin opponent — grow base, harvesters, then army-push +
+   trap placement. Simple & deterministic.
+7. Win/lose: `game.checkEnd()` — destroy enemy base (Foundry/Heartwood + buildings) or hold
+   control points (Chunk 8) → overlay.
+8. Headless tests: DPS correct; rear hit bonus applies; suppression pins squad; squad reinforce
+   costs/replaces men; cover reduces damage; trap triggers once on enemy feet; fog hides unit.
 
-**DoD:** In browser: two units fight (shells fly, hp bars drop, death). Enemy hidden until
-scouted; minimap (Chunk 7) reflects shroud. Build clean, tests green.
-
-**DoD:** In browser: two units fight (arrows fly, hp bars drop, death). Fog hides enemy until
-scouted; minimap (Chunk 7) reflects explored. Build clean, tests green.
+**DoD:** In browser: two squads fight (tracers fly, squad HP drops, death). Cover/traps affect
+combat. Enemy hidden until scouted; minimap (Chunk 7) shows shroud. Build clean, tests green.
 
 ---
 
-### CHUNK 7 — Full UI: C&C sidebar, minimap w/ shroud, health bars, portraits, announcements
-**Goal:** Polished, playable C&C-style interface.
+### CHUNK 7 — Full UI: race sidebar, minimap w/ shroud, squad bars, hero panel, portraits
+**Goal:** Polished, playable interface for both races.
 
 Steps:
-1. `src/render/minimap.ts`: canvas 2D minimap — terrain colors, unit dots, **shroud + fog**
-   shading. Click-to-move camera; render at low cost (update 10Hz).
-2. `src/render/hud.ts` (full): top resource bar (**credits**, power bar with low-power warning),
-   minimap, and a **right-side C&C sidebar** with tabs (Power / Base / Defense / Infantry /
-   Vehicle). Each entry shows cost + build progress; clicking enters placement mode. Health bars
-   over units (billboard sprites), announcements feed ("Harvester ready", "You are victorious!").
-3. Unit portraits: procedurally drawn small canvas icons per type (no assets).
-4. `src/render/selection.ts`: hp bars + selection rings + attack line to target + deploy button
-   for MCV.
-5. Pause (`P`), game timer, FPS counter (`perf.ts`).
-6. Headless tests: HUD is DOM — skip; ensure `hud.ts` has a `update(state)` pure-ish API so it's
-   testable for resource/power formatting and sidebar cost logic.
+1. `src/render/minimap.ts`: canvas 2D minimap — terrain, unit dots, **shroud+fog** shading, and
+   **control-point** icons. Click-to-move camera; 10Hz updates.
+2. `src/render/hud.ts` (full): ore+gas + power bar (low-power warning), minimap, and a **right-side
+   race-aware sidebar** (Forgefolk: Base/Defense/Infantry/Vehicle; Thornkin: Growth/Defense/Minions/
+   Monsters). Entries show cost + build/growth progress; clicking enters placement mode. Squad
+   health bars over units, announcements ("Harvester ready", "You are victorious!").
+3. Unit portraits: procedural canvas icons per type (no assets).
+4. `src/render/selection.ts`: squad bars, selection rings, attack lines, garrison + deploy buttons.
+5. **Hero panel** (from Chunk 8): ability slots `Q/W/E` + cooldowns.
+6. Pause (`P`), game timer, FPS counter (`perf.ts`).
+7. Headless tests: `hud.ts` has a pure-ish `update(state)` API testable for resource/power/sidebar
+   cost + progress formatting.
 
-**DoD:** Full playable skirmish vs AI: deploy, build from sidebar, harvest, fight, see
-minimap/shroud, win/lose overlays. Build clean, tests green.
-
-**DoD:** Full playable skirmish vs AI: build, gather, fight, see minimap/fog, use command card,
-win/lose overlays. Build clean, tests green.
+**DoD:** Full playable skirmish vs AI for both races: deploy, build from sidebar, harvest, fight,
+see minimap/shroud, control points, hero panel, win/lose overlays. Build clean, tests green.
 
 ---
 
-### CHUNK 8 — Superpowers, tech upgrades, polish, audio, balance
-**Goal:** Deeper game (RA2 superpowers + upgrades) + juice + sound.
+### CHUNK 8 — Heroes, The Hollow, control points, tech tiers, balance
+**Goal:** Endgame depth: unique heroes, the dungeon layer, victory points, 3-tier tech.
 
 Steps:
-1. `src/sim/tech.ts` (full): upgrade tiers (e.g. `weapon1/2/3`, `armor1/2/3`) purchasable at
-   Weapons Factory/Barracks; Tesla Coil and tank upgrades. Costs + effects in `config.ts`.
-2. **Superpowers** in `src/sim/tech.ts` or a new `src/sim/powers.ts`: Allied **Chronosphere**
-   (teleport selected group after a brief charge) and Soviet **Iron Curtain** (invulnerability
-   for a duration). Cooldown + cost; effects deterministic and testable.
-3. `src/audio/sound.ts`: Web Audio synth — construction, tank fire, tesla zap, explosion,
-   harvester dump, click, victory sting. All synthesized; a simple mixer with volume.
-4. Polish: unit idle bob, facing smoothing, soft fog/shroud edges (shader), nicer water, sky
-   gradient, subtle screen shake on big hits (`fx.ts`), tesla bolt flicker.
-5. Balance pass: tune harvest/build/train/combat rates so an AI skirmish is winnable in ~10 min.
-   Record tuned constants in `config.ts` with comments.
-6. Headless tests: upgrade applies stat changes; Chronosphere teleports group to target;
-   Iron Curtain makes group invulnerable then expires; AoE damages multiple; audio functions
-   exist (no-op in headless).
+1. `src/sim/heroes.ts` + `src/sim/powers.ts`: **the Marshal** (Forgefolk) — morale aura, order
+   system, **Steam-Strike** artillery call-in. **the Warden/Overlord** (Thornkin) — commands
+   Hollow minions, sets trap-rooms, **Root-Grasp** roots an enemy in place. Heroes revive after a
+   timer; effects deterministic & testable.
+2. `src/sim/hollow.ts`: an underground **Hollow** burrow building that spawns **Blight-Grub**
+   minion swarms over time and hosts **trap-rooms** (slots where traps can be set). Both races can
+   build it; Thornkin stronger. The hero commands the swarm.
+3. `src/sim/controlpoints.ts`: neutral **Control Points** captured by standing; grant trickle ore
+   income and drive a **victory timer** (hold X of Y points for Z seconds to win).
+4. `src/sim/tech.ts`: **3 tech tiers** (Gas-gated) unlocking upgrades + higher-tier units.
+5. Extend `ai.ts`: uses heroes, hollow minions, and pushes control points.
+6. Balance pass: tune harvest/build/train/combat so an AI skirmish is winnable in ~10 min.
+   Constants in `config.ts` with comments.
+7. Headless tests: hero ability effects (Steam-Strike AoE, Root-Grasp root); hollow spawns
+   minions at rate; control point capture/income/victory timer; tech tier gates unit/upgrade.
 
-**DoD:** Upgrades + superpowers work, audio plays, game balanced/playable, 60fps on an M-series
-Mac for full map. Build clean, tests green.
-
-**DoD:** Upgrades work, audio plays, game is balanced/playable, performance stable on an M-series
-Mac at 60fps for full map. Build clean, tests green.
+**DoD:** Heroes, Hollow minions, control points, and 3 tech tiers work and are balanced; AI
+skirmish winnable in ~10 min. Build clean, tests green.
 
 ---
 
-### CHUNK 9 — Optimization, robustness, production build, packaging
-**Goal:** Ship-ready, fast, and robust; remove debug scaffolding.
+### CHUNK 9 — Audio, polish, optimization, robustness, packaging
+**Goal:** Juice, sound, 60fps on M-series, and a ship-ready production build.
 
 Steps:
-1. Perf: instance meshes for units/buildings/trees; cap draw calls; LOD for far units; minimap
-   throttled; GC pass (object pooling for projectiles). Target ≥60fps on M1/M2/M3 at full map.
-2. Remove Chunk 3 debug spawn command. Add `?seed=` URL param for reproducible maps.
-3. Robustness: error boundary → friendly "reload" screen; `ResizeObserver` handling; pause on
-   blur; memory: dispose meshes on death.
-4. `npm run build` then `npx vite preview` → confirm production bundle serves and runs.
-5. Write `docs/LOG.md` final summary + a `README.md` with run instructions (no accounts).
-6. Headless test: full 3000-step deterministic simulation from fixed seed passes invariants
-   (no NaN, no leaks, end-state consistent).
+1. `src/audio/sound.ts`: Web Audio synth — construction/prefab drop, sapling growth, tank fire,
+   chainsaw, axe, trap trigger, hero ability, harvester dump, click, victory sting. A mixer.
+2. Polish: unit idle bob, facing smoothing, soft fog/shroud edges (shader), nicer water, sky
+   gradient, screen shake on big hits, trap flicker.
+3. Perf: instance meshes for units/buildings/trees; cap draw calls; LOD for far units; minimap
+   throttled; GC pass (object pooling for projectiles/minions). Target ≥60fps on M1/M2/M3 full map.
+4. Remove Chunk 3 debug spawn command. Add `?seed=` URL param for reproducible maps.
+5. Robustness: error boundary → "reload" screen; `ResizeObserver`; pause on blur; dispose meshes.
+6. `npm run build` then `npx vite preview` → confirm production bundle serves and runs.
+7. `docs/LOG.md` final summary + `README.md` run instructions (no accounts).
+8. Headless test: full 3000-step deterministic sim from fixed seed passes invariants (no NaN,
+   no leaks, consistent end-state).
 
-**DoD:** 60fps on M-series; production `vite preview` works; `npm run build` zero errors;
-README documents `npm install && npm run dev` and `npm run build`. All tests green.
+**DoD:** 60fps on M-series; `vite preview` works; `npm run build` zero errors; README documents
+`npm install && npm run dev` and `npm run build`; all tests green.
 
 ---
 
@@ -458,6 +513,27 @@ Steps:
 
 **DoD:** All sections of this plan satisfied; game runs on M-series Mac in-browser; no developer
 accounts; clean git history; README gives a stranger the 2-command run path.
+
+---
+
+### CHUNK 11 — Third faction: Aliens (post-v1 stretch; start only after Chunk 10 passes)
+**Goal:** Add the Aliens as a full third faction, reusing the sim and all shared systems.
+
+Steps:
+1. Extend `races.ts` to 3 factions; add Alien units/buildings/hero from Section 3.
+2. New `src/sim/shields.ts`: regenerating **shield** layer over HP for Alien units/buildings
+   (absorbs damage first, regenerates when not hit).
+3. **Cloaking** on `hunter-stalker`: hidden unless moving; shimmer effect in render; fog interplay
+   (cloaked unit invisible to enemies).
+4. New `src/sim/psionic.ts`: **Psionic Ground** creep field spreads from the Hive-Nexus; buildings
+   **warp-in** only on the field (else invalid placement).
+5. `parasite-larvae` **parasite/mind-control**; **morph** upgrades for drones at tech tiers.
+6. Alien AI (swarm pressure + hunter-killer behavior), balance vs both races, audio/polish.
+7. Headless tests: shields absorb then regenerate; cloak hides a stationary unit; warp-in blocked
+   off-field; mind-control expires and returns the unit; morph upgrades stats.
+
+**DoD:** Any 2-faction skirmish pairing works (incl. Aliens); all prior gates (`build`, `test`,
+`preview`) still green; 60fps on M-series with 3 factions.
 
 ---
 
@@ -479,6 +555,7 @@ accounts; clean git history; README gives a stranger the 2-command run path.
 
 ## 8. Definition of "Done" (global)
 - Runs in a browser on any M-series Mac at 60fps.
-- A full skirmish RTS loop exists: build → gather → train → tech → fight → win/lose → fog/minimap/UI.
+- A full skirmish RTS loop exists: deploy → harvest → build (prefab/growth) → train → tech →
+  fight (squads/cover/traps/heroes) → win/lose → shroud/fog/minimap/sidebar/control-point UI.
 - `npm run dev`, `npm run build`, `npm run test`, `npx vite preview` all pass.
 - Zero developer accounts, zero paid services, zero licensed assets, zero runtime network.
