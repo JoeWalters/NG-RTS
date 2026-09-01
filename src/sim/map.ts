@@ -36,6 +36,8 @@ export class GridMap {
   private tiles: Uint8Array;
   /** building occupancy: tile index -> building entity id (0 = free). */
   private occupied: Int32Array;
+  /** Bumped when blocking changes (tiles or occupancy) — invalidates path caches. */
+  epoch = 0;
 
   constructor(size = MAP_SIZE) {
     this.size = size;
@@ -45,7 +47,7 @@ export class GridMap {
   }
 
   idx(x: number, y: number): number {
-    return y * this.size + x;
+    return Math.floor(y) * this.size + Math.floor(x);
   }
 
   inBounds(x: number, y: number): boolean {
@@ -58,7 +60,10 @@ export class GridMap {
   }
 
   setTile(x: number, y: number, t: Tile): void {
-    if (this.inBounds(x, y)) this.tiles[this.idx(x, y)] = t;
+    if (this.inBounds(x, y)) {
+      this.tiles[this.idx(x, y)] = t;
+      this.epoch++; // generation bumps on any tile write (incl. during gen)
+    }
   }
 
   /** Ground-movement blocking: water, trees, and building-occupied tiles. */
@@ -73,12 +78,16 @@ export class GridMap {
   occupy(x: number, y: number, buildingId: number): boolean {
     if (!this.inBounds(x, y) || this.occupied[this.idx(x, y)] !== 0) return false;
     this.occupied[this.idx(x, y)] = buildingId;
+    this.epoch++;
     return true;
   }
 
   release(x: number, y: number, buildingId: number): void {
     if (!this.inBounds(x, y)) return;
-    if (this.occupied[this.idx(x, y)] === buildingId) this.occupied[this.idx(x, y)] = 0;
+    if (this.occupied[this.idx(x, y)] === buildingId) {
+      this.occupied[this.idx(x, y)] = 0;
+      this.epoch++;
+    }
   }
 
   /** Serialize the tile grid (for determinism comparisons in tests). */

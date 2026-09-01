@@ -53,3 +53,41 @@ verification result. Chunks never advance until the current DoD passes.
 - `npm run dev` → serves placeholder page ✓
 
 **Next:** Chunk 2 — A* pathfinding + movement steering.
+
+---
+
+## Chunk 2 — Pathfinding + movement steering (DONE)
+
+**Built:**
+- `src/sim/pathfind.ts`: A* over the 128×128 grid (8-dir, octile heuristic, cardinal-preferred),
+  **corner-cutting prevention** (diagonals blocked when an orthogonal tile is blocked), path cache
+  keyed by (start,goal) and invalidated on map `epoch` bump. `isLineClear` (dense 4x sampling so
+  smoothing never collapses a line that crosses a blocked corner), `smoothPath` (string-pulling),
+  `nearestWalkable` (re-seek start recovery). `PathFollow` (waypoint seeking, arrival snap,
+  >1s stuck detection → re-seek).
+- `src/sim/map.ts`: added `epoch` (bumped on tile/occupancy writes) for cache invalidation;
+  `idx()` floors coords (fixes float-coordinate array out-of-range).
+- `src/sim/collision.ts`: `applySeparation` — same-team overlap push-apart respecting tile blocking.
+- `src/sim/unit.ts`: `moveTo` / `attackMoveTo` / `updateMovement` (path follow + separation),
+  `moving`, `waypoints`.
+
+**Bugs found & fixed during build:**
+1. `idx()` with float coords → `occupied[i]` out-of-range (`undefined !== 0` = true) blocked
+   everything. Fixed by flooring in `idx()`.
+2. A* diagonal corner-cutting → unit wedged on wall corners. Fixed with corner-cut check.
+3. Bresenham `isLineClear` missed corner-crossing diagonals → smoothing produced a path that
+   physically cut through a blocked tile. Fixed with dense 4x sampling.
+4. Arrival-radius drift let units skip waypoints and cut corners diagonally. Fixed by snapping
+   exactly onto each reached waypoint before advancing.
+
+**Tests added:** `pathfind` (15) → 45 total pass. Covers A* around walls, not-found handling,
+path bounds, cache invalidation, smoothing validity, wall-routing movement, crossing non-overlap,
+stuck re-seek recovery, stationary-cluster separation.
+
+**DoD verification:**
+- `npm run build` → exit 0, strict TS clean ✓
+- `npm run test` → 45/45 pass (A* avoids obstacles, diagonals bounded, no overlap after 500 steps,
+  no NaN) ✓
+- `npm run dev` → serves placeholder page ✓
+
+**Next:** Chunk 3 — rendering: terrain, units, camera, selection.
