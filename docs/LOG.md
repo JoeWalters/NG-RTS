@@ -91,3 +91,37 @@ stuck re-seek recovery, stationary-cluster separation.
 - `npm run dev` → serves placeholder page ✓
 
 **Next:** Chunk 3 — rendering: terrain, units, camera, selection.
+
+---
+
+## Chunk 3 — Rendering: terrain, units, camera, selection (DONE)
+
+**Built:**
+- `src/render/camera.ts`: `RTSController` — pure camera math (view center + zoom, WASD/edge pan,
+  wheel zoom clamped, bounds clamp); `apply()` drives an orthographic top-down camera.
+- `src/render/terrain.ts`: `buildTerrain` — full-map ground quad with procedural per-tile
+  CanvasTexture (grass/water/ore/gems), instanced tree cones + crystal mounds; headless fallback
+  texture when no DOM. Returns counts for tests.
+- `src/render/unitmesh.ts`: `UnitMeshRegistry` — entityId→mesh with prev/cur interpolation,
+  team tinting, raycast targets, dispose on remove.
+- `src/render/selection.ts`: `SelectionManager` — selection ids + ground selection rings.
+- `src/render/renderer.ts`: `Renderer` — WebGL scene, ortho camera, lights, terrain, meshes,
+  selection; fixed-step + interpolated render hooks.
+- `src/main.ts`: full wiring — Game + Renderer, fixed-step accumulator with interpolation,
+  WASD/edge-pan/wheel/middle-drag camera, click + box selection via raycast/ground projection,
+  `H` spawns a harvester at camera, `?seed=` URL param. Spawns 2 harvesters that walk toward
+  each other so movement is visible.
+- `src/sim/entities.ts`: added `kind?` discriminator for render.
+
+**Tests added:** `render` (6 headless scene-graph smoke tests, no GL needed) → 51 total pass.
+Covers terrain counts, mesh add/sync/interpolate/remove, selection ring lifecycle, camera
+clamp/zoom, ortho apply.
+
+**DoD verification:**
+- `npm run build` → exit 0, strict TS clean ✓
+- `npm run test` → 51/51 pass ✓
+- `npm run dev` → serves page + module ✓
+- Visual check (terrain + two harvesters walking, WASD/zoom/edge-pan, click-select ring)
+  **pending a human browser pass** — cannot be verified headlessly (needs WebGL).
+
+**Next:** Chunk 4 — ordering, selection, and movement orders (input → sim).

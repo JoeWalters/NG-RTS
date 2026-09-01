@@ -8,6 +8,8 @@ export class Entity {
   team: number; // 0 = Forgefolk (blue), 1 = Thornkin (red)
   facing = 0; // radians
   alive = true;
+  /** render/type discriminator: 'unit' | 'building' (set by subclasses) */
+  kind?: string;
 
   constructor(pos: { x: number; y: number }, radius: number, team: number, facing = 0) {
     this.pos = { ...pos };
