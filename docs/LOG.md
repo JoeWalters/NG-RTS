@@ -53,3 +53,75 @@ verification result. Chunks never advance until the current DoD passes.
 - `npm run dev` → serves placeholder page ✓
 
 **Next:** Chunk 2 — A* pathfinding + movement steering.
+
+---
+
+## Chunk 2 — Pathfinding + movement steering (DONE)
+
+**Built:**
+- `src/sim/pathfind.ts`: A* over the 128×128 grid (8-dir, octile heuristic, cardinal-preferred),
+  **corner-cutting prevention** (diagonals blocked when an orthogonal tile is blocked), path cache
+  keyed by (start,goal) and invalidated on map `epoch` bump. `isLineClear` (dense 4x sampling so
+  smoothing never collapses a line that crosses a blocked corner), `smoothPath` (string-pulling),
+  `nearestWalkable` (re-seek start recovery). `PathFollow` (waypoint seeking, arrival snap,
+  >1s stuck detection → re-seek).
+- `src/sim/map.ts`: added `epoch` (bumped on tile/occupancy writes) for cache invalidation;
+  `idx()` floors coords (fixes float-coordinate array out-of-range).
+- `src/sim/collision.ts`: `applySeparation` — same-team overlap push-apart respecting tile blocking.
+- `src/sim/unit.ts`: `moveTo` / `attackMoveTo` / `updateMovement` (path follow + separation),
+  `moving`, `waypoints`.
+
+**Bugs found & fixed during build:**
+1. `idx()` with float coords → `occupied[i]` out-of-range (`undefined !== 0` = true) blocked
+   everything. Fixed by flooring in `idx()`.
+2. A* diagonal corner-cutting → unit wedged on wall corners. Fixed with corner-cut check.
+3. Bresenham `isLineClear` missed corner-crossing diagonals → smoothing produced a path that
+   physically cut through a blocked tile. Fixed with dense 4x sampling.
+4. Arrival-radius drift let units skip waypoints and cut corners diagonally. Fixed by snapping
+   exactly onto each reached waypoint before advancing.
+
+**Tests added:** `pathfind` (15) → 45 total pass. Covers A* around walls, not-found handling,
+path bounds, cache invalidation, smoothing validity, wall-routing movement, crossing non-overlap,
+stuck re-seek recovery, stationary-cluster separation.
+
+**DoD verification:**
+- `npm run build` → exit 0, strict TS clean ✓
+- `npm run test` → 45/45 pass (A* avoids obstacles, diagonals bounded, no overlap after 500 steps,
+  no NaN) ✓
+- `npm run dev` → serves placeholder page ✓
+
+**Next:** Chunk 3 — rendering: terrain, units, camera, selection.
+
+---
+
+## Chunk 3 — Rendering: terrain, units, camera, selection (DONE)
+
+**Built:**
+- `src/render/camera.ts`: `RTSController` — pure camera math (view center + zoom, WASD/edge pan,
+  wheel zoom clamped, bounds clamp); `apply()` drives an orthographic top-down camera.
+- `src/render/terrain.ts`: `buildTerrain` — full-map ground quad with procedural per-tile
+  CanvasTexture (grass/water/ore/gems), instanced tree cones + crystal mounds; headless fallback
+  texture when no DOM. Returns counts for tests.
+- `src/render/unitmesh.ts`: `UnitMeshRegistry` — entityId→mesh with prev/cur interpolation,
+  team tinting, raycast targets, dispose on remove.
+- `src/render/selection.ts`: `SelectionManager` — selection ids + ground selection rings.
+- `src/render/renderer.ts`: `Renderer` — WebGL scene, ortho camera, lights, terrain, meshes,
+  selection; fixed-step + interpolated render hooks.
+- `src/main.ts`: full wiring — Game + Renderer, fixed-step accumulator with interpolation,
+  WASD/edge-pan/wheel/middle-drag camera, click + box selection via raycast/ground projection,
+  `H` spawns a harvester at camera, `?seed=` URL param. Spawns 2 harvesters that walk toward
+  each other so movement is visible.
+- `src/sim/entities.ts`: added `kind?` discriminator for render.
+
+**Tests added:** `render` (6 headless scene-graph smoke tests, no GL needed) → 51 total pass.
+Covers terrain counts, mesh add/sync/interpolate/remove, selection ring lifecycle, camera
+clamp/zoom, ortho apply.
+
+**DoD verification:**
+- `npm run build` → exit 0, strict TS clean ✓
+- `npm run test` → 51/51 pass ✓
+- `npm run dev` → serves page + module ✓
+- Visual check (terrain + two harvesters walking, WASD/zoom/edge-pan, click-select ring)
+  **pending a human browser pass** — cannot be verified headlessly (needs WebGL).
+
+**Next:** Chunk 4 — ordering, selection, and movement orders (input → sim).

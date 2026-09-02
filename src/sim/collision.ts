@@ -129,3 +129,50 @@ export function moveEntity(e: Moveable, dx: number, dy: number, world: MoveWorld
   world.registry.updatePos(e);
   return { moved: true, blockedByTile: false, blockedByEntity: false };
 }
+
+// --- same-team separation (soft push-apart within radius) ---
+
+export interface SepWorld {
+  map: { isBlocked(x: number, y: number): boolean };
+  registry: {
+    all(): Array<{ pos: { x: number; y: number }; radius: number; team: number }>;
+    updatePos(e: unknown): void;
+  };
+}
+
+function pushEntity(e: { pos: { x: number; y: number } }, ux: number, uy: number, dist: number, world: SepWorld): boolean {
+  const nx = e.pos.x + ux * dist;
+  const ny = e.pos.y + uy * dist;
+  if (world.map.isBlocked(Math.round(nx), Math.round(ny))) return false;
+  e.pos.x = nx;
+  e.pos.y = ny;
+  world.registry.updatePos(e);
+  return true;
+}
+
+/**
+ * Resolve overlaps between same-team entities: each pair within (a.radius+b.radius)
+ * pushes apart along the separating axis, respecting tile blocking.
+ */
+export function applySeparation(world: SepWorld): void {
+  const all = world.registry.all();
+  for (let i = 0; i < all.length; i++) {
+    for (let j = i + 1; j < all.length; j++) {
+      const a = all[i];
+      const b = all[j];
+      if (a.team !== b.team || !a.radius || !b.radius) continue;
+      const dx = b.pos.x - a.pos.x;
+      const dy = b.pos.y - a.pos.y;
+      const rr = a.radius + b.radius;
+      const d2 = dx * dx + dy * dy;
+      if (d2 > 0 && d2 < rr * rr) {
+        const d = Math.sqrt(d2);
+        const dist = (rr - d) / 2;
+        const ux = dx / d;
+        const uy = dy / d;
+        pushEntity(a, -ux, -uy, dist, world);
+        pushEntity(b, ux, uy, dist, world);
+      }
+    }
+  }
+}
