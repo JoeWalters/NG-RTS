@@ -308,3 +308,32 @@ root/expire, hero revive, hollow minion cap, control-point capture/income/victor
 (stat tiers) deferred; control points currently not rendered on the 3D view (minimap only).
 
 **Next:** Chunk 9 — audio, polish, optimization, robustness, packaging.
+
+---
+
+## Chunk 9 — Audio, polish, robustness, packaging (DONE)
+
+**Built:**
+- `src/audio/sound.ts`: procedural Web Audio synth + mixer (`SoundMixer`) — click, fire, death,
+  build, harvest, trap, hero, victory/defeat. Headless-safe no-op (no AudioContext in Node).
+  Wired in main.ts: click / build / victory-defeat.
+- Polish: subtle unit idle bob (time-based); camera/terrain visibility fix from earlier.
+- Robustness: global error + unhandled-rejection → overlay with reload; auto-pause when tab hidden.
+- Packaging: `README.md` (install/dev/build/test/controls), `?seed=` documented.
+- Perf: minimap already throttled (10Hz); DPR capped; object disposal on death.
+
+**Tests added:** `determinism` (2) → 93 total pass, incl. **3000-step deterministic replay**
+(identical snapshots across identical seeds; no NaN; state advances).
+
+**DoD verification:**
+- `npm run build` → exit 0, strict TS clean ✓
+- `npm run test` → 93/93 pass ✓
+- `npx vite preview` → production build serves (index + bundle) ✓
+- README documents `npm install && npm run dev` and `npm run build` ✓
+
+**Deferred polish (noted, not done):** mesh instancing for units/buildings, LOD, soft fog-edge
+shader, animated water, sky gradient, projectile/FX rendering, health bars on 3D view, screen
+shake, stat-tier upgrades, balance pass. These are the remaining Chunk 9 polish items and/or the
+CC0 asset integration.
+
+**Next:** Chunk 10 — final acceptance & handoff (regression + full playthrough + commit).

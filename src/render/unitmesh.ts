@@ -104,7 +104,7 @@ export class UnitMeshRegistry {
   }
 
   /** Position meshes at lerp(prev, cur, alpha); scale buildings by progress. */
-  render(alpha: number): void {
+  render(alpha: number, time = 0): void {
     for (const m of this.byId.values()) {
       m.group.position.set(
         m.prevX + (m.curX - m.prevX) * alpha,
@@ -116,6 +116,7 @@ export class UnitMeshRegistry {
         m.group.scale.set(s, s, s);
       } else {
         m.group.scale.set(1, 1, 1);
+        m.group.position.y = Math.sin(time * 8) * 0.04; // idle bob
       }
     }
   }

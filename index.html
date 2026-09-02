@@ -22,6 +22,9 @@
       <div class="hud-slot" id="hud-bottom"></div>
       <div class="hud-slot" id="hud-side"></div>
       <canvas id="minimap" style="position:absolute;top:56px;right:214px;width:160px;height:160px;background:#111;border:1px solid #666"></canvas>
+      <div id="error-overlay" style="display:none;position:fixed;inset:0;place-items:center;background:#000c;color:#fff;font-size:20px;z-index:50;padding:24px;text-align:center">
+        Something went wrong. <button onclick="location.reload()" style="display:block;margin:12px auto;padding:8px 16px">Reload</button>
+      </div>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

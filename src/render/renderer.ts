@@ -85,8 +85,8 @@ export class Renderer {
     this.units.beginTick();
   }
 
-  render(alpha: number, viewW: number, viewH: number): void {
-    this.units.render(alpha);
+  render(alpha: number, viewW: number, viewH: number, time = 0): void {
+    this.units.render(alpha, time);
     this.selection.render();
     this.controller.apply(this.camera, viewW, viewH);
     this.renderer.setSize(viewW, viewH);

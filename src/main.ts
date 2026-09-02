@@ -9,6 +9,7 @@ import type { Order } from './sim/order.js';
 import type { Entity } from './sim/entities.js';
 import { HUD, sidebarEntries } from './render/hud.js';
 import { Minimap } from './render/minimap.js';
+import { SoundMixer } from './audio/sound.js';
 import * as THREE from 'three';
 
 const app = document.getElementById('app')!;
@@ -29,6 +30,7 @@ uA.moveTo(BASE_RED.x, BASE_RED.y, { map: game.map, registry: game.registry });
 uB.moveTo(BASE_BLUE.x, BASE_BLUE.y, { map: game.map, registry: game.registry });
 
 const hud = new HUD(document.getElementById('hud-bottom')!);
+const mixer = new SoundMixer();
 hud.setSidebar(sidebarEntries(0, game.players[0]), (kind) => {
   buildMode = kind;
   announce = `place ${kind}: left-click to build, Esc to cancel`;
@@ -124,7 +126,10 @@ window.addEventListener('mouseup', (e) => {
   const dy = e.clientY - dragStart.y;
   if (Math.hypot(dx, dy) <= CLICK_DRAG_THRESHOLD) {
     if (buildMode) placeAtCursor();
-    else clickSelect(dragStart.x, dragStart.y);
+    else {
+      clickSelect(dragStart.x, dragStart.y);
+      mixer.play('click');
+    }
   } else {
     boxSelect(dragStart.x, dragStart.y, e.clientX, e.clientY);
   }
@@ -249,6 +254,7 @@ function placeAtCursor(): void {
   const gz = Math.floor(g.y);
   const placed = game.placeBuilding(buildMode, gx, gz, 0);
   announce = placed ? `built ${buildMode}` : 'cannot build there';
+  if (placed) mixer.play('build');
 }
 
 function attackMoveAtCursor(): void {
@@ -335,6 +341,7 @@ let last = performance.now();
 let acc = 0;
 let frames = 0;
 let fpsAcc = 0;
+let prevGameOver = false;
 function frame(now: number): void {
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
@@ -350,7 +357,7 @@ function frame(now: number): void {
   }
   const alpha = acc / DEFAULT_TICK;
   renderer.controller.update(paused ? 0 : dt, buildCameraInput());
-  renderer.render(alpha, app.clientWidth, app.clientHeight);
+  renderer.render(alpha, app.clientWidth, app.clientHeight, now / 1000);
 
   minimap.update(0, now);
   if (buildMode) {
@@ -384,6 +391,10 @@ function frame(now: number): void {
     winner: game.winner,
     buildMode,
   });
+  if (game.gameOver && !prevGameOver) {
+    mixer.play(game.winner === 0 ? 'victory' : 'defeat');
+  }
+  prevGameOver = game.gameOver;
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
@@ -391,5 +402,20 @@ requestAnimationFrame(frame);
 window.addEventListener('resize', () => {
   renderer.setSize(app.clientWidth, app.clientHeight);
 });
+
+// --- robustness ---
+window.addEventListener('error', (e) => showError(e.message ?? 'unknown error'));
+window.addEventListener('unhandledrejection', (e) =>
+  showError(String((e as PromiseRejectionEvent).reason ?? 'unhandled rejection'))
+);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) paused = true; // pause when the tab is hidden
+});
+function showError(msg: string): void {
+  const el = document.getElementById('error-overlay');
+  if (!el) return;
+  el.style.display = 'grid';
+  el.insertAdjacentText('afterbegin', `Error: ${msg}\n`);
+}
 
 console.log('[ng-rts] Chunk 4 ready — seed', seed);
