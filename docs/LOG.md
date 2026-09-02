@@ -230,3 +230,31 @@ checkEnd, AI base+harvesters.
 - Browser fight/cover/trap/fog visuals **pending a human browser pass** (needs WebGL).
 
 **Next:** Chunk 7 — full UI: race sidebar, minimap w/ shroud, squad bars, hero panel, portraits.
+
+---
+
+## Chunk 7 — Full UI: sidebar, minimap w/ shroud, HUD, portraits (DONE)
+
+**Built:**
+- `src/render/minimap.ts`: 2D minimap canvas — terrain + shroud/fog overlay + unit dots,
+  click-to-move camera, 10Hz throttled. Pure `sampleMinimap` for headless tests.
+- `src/render/hud.ts`: full DOM HUD — resource bar (credits/gas/power + low-power warning),
+  buildable **sidebar** (affordable entries with cost/power, click to enter placement mode),
+  selection readout (squad size, HP, pinned), announcements, meta (timer/fps/build-mode),
+  hero panel stub, and victory/defeat overlay. Pure helpers: `formatResources`, `sidebarEntries`,
+  `portraitColor`, `formatSelection`.
+- `renderer.ts`: translucent placement **ghost** (green=valid / red=invalid).
+- `index.html`: minimap canvas.
+- `main.ts`: build mode (sidebar → ghost → left-click place → Esc cancel), `P` pause,
+  timer/FPS, minimap jump, full HUD state.
+
+**Tests added:** `ui` (5) → 84 total pass. Covers minimap sample counts, fog-hides-enemy-dot,
+sidebar affordability/exclusion, resource/selection formatting.
+
+**DoD verification:**
+- `npm run build` → exit 0, strict TS clean ✓
+- `npm run test` → 84/84 pass ✓
+- `npm run dev` → serves page + minimap ✓
+- Browser sidebar/build/ghost/pause/overlay visuals **pending a human browser pass** (needs WebGL).
+
+**Next:** Chunk 8 — heroes, The Hollow, control points, tech tiers, balance.

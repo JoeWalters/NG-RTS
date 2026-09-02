@@ -18,6 +18,7 @@ export class Renderer {
   readonly units: UnitMeshRegistry;
   readonly selection: SelectionManager;
   readonly terrain;
+  ghost: THREE.Mesh;
 
   constructor(container: HTMLElement, game: Game) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -42,7 +43,26 @@ export class Renderer {
     this.selection = new SelectionManager(this.scene, this.units);
     this.controller = new RTSController(game.map.size, game.map.size / 2, game.map.size / 2);
 
+    // placement ghost (sidebar build mode)
+    this.ghost = new THREE.Mesh(
+      new THREE.BoxGeometry(3, 1.1, 3),
+      new THREE.MeshBasicMaterial({ color: 0x00ff88, transparent: true, opacity: 0.45 })
+    );
+    this.ghost.visible = false;
+    this.scene.add(this.ghost);
+
     this.setSize(container.clientWidth, container.clientHeight);
+  }
+
+  /** Show a placement ghost at (x,z); green = valid, red = invalid. */
+  setGhost(x: number, z: number, valid: boolean): void {
+    this.ghost.visible = true;
+    this.ghost.position.set(x, 0.55, z);
+    (this.ghost.material as THREE.MeshBasicMaterial).color.setHex(valid ? 0x00ff88 : 0xff4444);
+  }
+
+  hideGhost(): void {
+    this.ghost.visible = false;
   }
 
   /** Sync every live entity into meshes (adds new, removes dead, applies fog). */

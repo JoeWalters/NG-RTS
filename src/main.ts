@@ -7,7 +7,8 @@ import { DEFAULT_TICK } from './core/loop.js';
 import type { CameraInput } from './render/camera.js';
 import type { Order } from './sim/order.js';
 import type { Entity } from './sim/entities.js';
-import { HUD } from './render/hud.js';
+import { HUD, sidebarEntries } from './render/hud.js';
+import { Minimap } from './render/minimap.js';
 import * as THREE from 'three';
 
 const app = document.getElementById('app')!;
@@ -28,6 +29,14 @@ uA.moveTo(BASE_RED.x, BASE_RED.y, { map: game.map, registry: game.registry });
 uB.moveTo(BASE_BLUE.x, BASE_BLUE.y, { map: game.map, registry: game.registry });
 
 const hud = new HUD(document.getElementById('hud-bottom')!);
+hud.setSidebar(sidebarEntries(0, game.players[0]), (kind) => {
+  buildMode = kind;
+  announce = `place ${kind}: left-click to build, Esc to cancel`;
+});
+const minimapEl = document.getElementById('minimap') as HTMLCanvasElement;
+const minimap = new Minimap(minimapEl, game.map, game.fog, game.registry, (x, y) => {
+  renderer.controller.setPosition(x, y);
+});
 
 // --- input state ---
 const keys: Record<string, boolean> = {};
@@ -40,6 +49,11 @@ let panLast: { x: number; y: number } | null = null;
 const groups = new Map<number, number[]>();
 const raycaster = new THREE.Raycaster();
 const CLICK_DRAG_THRESHOLD = 6;
+let buildMode: string | null = null;
+let paused = false;
+let announce = '';
+let gameTimer = 0;
+let fps = 60;
 
 window.addEventListener('keydown', (e) => {
   const k = e.key.toLowerCase();
@@ -58,7 +72,15 @@ window.addEventListener('keydown', (e) => {
     case 's': stopSelected(); break;
     case 'g': gatherAtCursor(); break;
     case 'd': deploySelected(); break;
-    case 'escape': renderer.selection.clear(); break;
+    case 'escape':
+      renderer.selection.clear();
+      buildMode = null;
+      renderer.hideGhost();
+      break;
+    case 'p':
+      paused = !paused;
+      announce = paused ? 'PAUSED' : '';
+      break;
     case 'h': spawnHarvesterAtCamera(); break;
     case 'm': spawnDeployableAtCamera(); break;
     case 'n': spawnWorldrootAtCamera(); break;
@@ -101,7 +123,8 @@ window.addEventListener('mouseup', (e) => {
   const dx = e.clientX - dragStart.x;
   const dy = e.clientY - dragStart.y;
   if (Math.hypot(dx, dy) <= CLICK_DRAG_THRESHOLD) {
-    clickSelect(dragStart.x, dragStart.y);
+    if (buildMode) placeAtCursor();
+    else clickSelect(dragStart.x, dragStart.y);
   } else {
     boxSelect(dragStart.x, dragStart.y, e.clientX, e.clientY);
   }
@@ -217,6 +240,17 @@ function cursorGround(): { x: number; y: number } | null {
   return g ? { x: g.x, y: g.z } : null;
 }
 
+/** Place the current buildMode structure at the cursor (sidebar build). */
+function placeAtCursor(): void {
+  if (!buildMode) return;
+  const g = cursorGround();
+  if (!g) return;
+  const gx = Math.floor(g.x);
+  const gz = Math.floor(g.y);
+  const placed = game.placeBuilding(buildMode, gx, gz, 0);
+  announce = placed ? `built ${buildMode}` : 'cannot build there';
+}
+
 function attackMoveAtCursor(): void {
   const g = cursorGround();
   if (!g) return;
@@ -299,20 +333,57 @@ function buildCameraInput(): CameraInput {
 
 let last = performance.now();
 let acc = 0;
+let frames = 0;
+let fpsAcc = 0;
 function frame(now: number): void {
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
-  acc += dt;
-  while (acc >= DEFAULT_TICK) {
-    renderer.beginTick();
-    game.step(DEFAULT_TICK);
-    renderer.sync(game);
-    acc -= DEFAULT_TICK;
+  if (!paused) {
+    gameTimer += dt;
+    acc += dt;
+    while (acc >= DEFAULT_TICK) {
+      renderer.beginTick();
+      game.step(DEFAULT_TICK);
+      renderer.sync(game);
+      acc -= DEFAULT_TICK;
+    }
   }
   const alpha = acc / DEFAULT_TICK;
-  renderer.controller.update(dt, buildCameraInput());
+  renderer.controller.update(paused ? 0 : dt, buildCameraInput());
   renderer.render(alpha, app.clientWidth, app.clientHeight);
-  hud.update(selectedUnits(), game.players[0]);
+
+  minimap.update(0, now);
+  if (buildMode) {
+    const g = cursorGround();
+    if (g) {
+      const gx = Math.floor(g.x);
+      const gz = Math.floor(g.y);
+      const valid = !game.map.isBlocked(gx, gz);
+      renderer.setGhost(gx + 0.5, gz + 0.5, valid);
+    }
+  } else {
+    renderer.hideGhost();
+  }
+
+  // fps smoothing
+  fpsAcc += dt;
+  frames++;
+  if (fpsAcc >= 0.5) {
+    fps = frames / fpsAcc;
+    frames = 0;
+    fpsAcc = 0;
+  }
+
+  hud.update({
+    player: game.players[0],
+    selection: selectedUnits(),
+    timer: gameTimer,
+    fps,
+    announce,
+    gameOver: game.gameOver,
+    winner: game.winner,
+    buildMode,
+  });
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
