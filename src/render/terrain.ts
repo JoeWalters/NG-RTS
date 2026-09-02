@@ -19,6 +19,7 @@ const TILE_COLORS: Record<number, number[]> = {
   [Tile.Trees]: [0x2e5c3a, 0x2e5c3a, 0x2e5c3a],
   [Tile.Ore]: [0xd9c14a, 0xd9c14a, 0xd9c14a, 0xc9b83f, 0xc9b83f, 0xc9b83f],
   [Tile.Gems]: [0x8fd6ff, 0x8fd6ff, 0x8fd6ff, 0xa9e6ff, 0xa9e6ff, 0xa9e6ff],
+  [Tile.Gas]: [0x7fe0c0, 0x7fe0c0, 0x7fe0c0],
 };
 
 /**
@@ -33,27 +34,35 @@ function makeGroundTexture(map: GridMap): THREE.Texture {
     return t;
   }
   const canvas = document.createElement('canvas');
-  canvas.width = map.size;
-  canvas.height = map.size;
+  const SCALE = 4; // 4 canvas px per tile for a smoother ground
+  canvas.width = map.size * SCALE;
+  canvas.height = map.size * SCALE;
   const ctx = canvas.getContext('2d')!;
   ctx.fillStyle = '#000';
-  ctx.fillRect(0, 0, map.size, map.size);
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
   for (let y = 0; y < map.size; y++) {
     for (let x = 0; x < map.size; x++) {
-      const pal = TILE_COLORS[map.tileAt(x, y)];
+      const pal = TILE_COLORS[map.tileAt(x, y)] ?? TILE_COLORS[Tile.Ground];
       const n = pal.length / 3;
-      const i = Math.abs((x * 7 + y * 13) ^ (x * y)) % n;
-      const r = pal[i * 3];
-      const g = pal[i * 3 + 1];
-      const b = pal[i * 3 + 2];
-      ctx.fillStyle = `rgb(${r},${g},${b})`;
-      ctx.fillRect(x, y, 1, 1);
+      const base = Math.abs((x * 7 + y * 13) ^ (x * y)) % n;
+      for (let sy = 0; sy < SCALE; sy++) {
+        for (let sx = 0; sx < SCALE; sx++) {
+          const shade = 0.9 + 0.1 * (((x * 3 + y * 5 + sx * 7 + sy * 11) % 10) / 10);
+          const i = base * 3;
+          const r = pal[i] * shade;
+          const g = pal[i + 1] * shade;
+          const b = pal[i + 2] * shade;
+          ctx.fillStyle = `rgb(${r},${g},${b})`;
+          ctx.fillRect(x * SCALE + sx, y * SCALE + sy, 1, 1);
+        }
+      }
     }
   }
   const tex = new THREE.CanvasTexture(canvas);
   tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
-  tex.minFilter = THREE.NearestFilter;
-  tex.magFilter = THREE.NearestFilter;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.magFilter = THREE.LinearFilter;
+  tex.generateMipmaps = true;
   return tex;
 }
 

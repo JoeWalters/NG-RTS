@@ -24,9 +24,9 @@ export const MAX_ZOOM = 3.0;
 export class RTSController {
   x: number;
   y: number;
-  zoom = 0.6;
+  zoom = 0.7;
   /** world units per screen pixel at zoom=1 (ortho frustum = viewport * zoom) */
-  pixelScale = 1.0;
+  pixelScale = 0.1;
   private bounds: number;
 
   constructor(bounds: number, startX = 0, startY = 0) {
