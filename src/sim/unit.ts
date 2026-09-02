@@ -15,6 +15,14 @@ export class Unit extends Entity {
   /** fight-while-moving flag (combat itself arrives in Chunk 6). */
   attackMove = false;
 
+  // --- Chunk 5 economy roles ---
+  role = 'unit'; // 'harvester' etc.
+  kindName = '';
+  /** true while the EconomySystem owns this unit's movement */
+  economyActive = false;
+  /** visual: harvester is carrying cargo */
+  carrying = false;
+
   // --- ordering (Chunk 4) ---
   readonly orders = new OrderQueue();
   orderState: UnitOrderState = 'idle';

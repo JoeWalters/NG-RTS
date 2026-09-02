@@ -158,3 +158,43 @@ stop preemption.
   browser pass** (needs WebGL).
 
 **Next:** Chunk 5 — economy: harvesters, ore+gas, power grid, race build styles, production.
+
+---
+
+## Chunk 5 — Economy: harvesters, ore+gas, power grid, race build styles, production (DONE)
+
+**Built:**
+- `src/sim/races.ts`: `RACES` (Forgefolk prefab-drop vs Thornkin sapling-growth; Root-Network global
+  build), building/unit catalogs with costs, power, build times.
+- `src/sim/building.ts`: `Building` with role, construction progress, power fields, production
+  queue (`enqueue`); `placeBuilding` validates cost/tiles/range and applies race build-mode time.
+- `src/sim/economy.ts`: `EconomySystem` — resource fields (clustered from map ore/gas/gems),
+  harvester gather→carry→drop-off→dump cycles, silo capacity, gas resource, power grid
+  (produced/consumed per player, low-power 0.5x penalty), construction, production queues,
+  field regen.
+- `src/sim/map.ts`: added `Gas` tile + 3 vents (2 near bases, 1 at center).
+- `src/sim/unit.ts`: `role`/`economyActive`/`carrying`/`kindName`; `order.ts` deploy → race base
+  (Foundry-Mule → Foundry, Worldroot → Heartwood); harvest respects economy ownership.
+- `src/core/game.ts`: wired `EconomySystem`, starting credits, `placeBuilding` helper.
+- `render/unitmesh.ts`: building mesh scales with construction progress.
+- `main.ts`: `e` key starts a both-race economy demo (base + harvester + auto-harvest),
+  `n` spawns a Worldroot.
+
+**Bugs found & fixed:**
+1. Harvester pathfinding to the dropoff's own occupied tile → never arrived. Fixed by targeting an
+   adjacent walkable tile.
+2. `applySeparation` pushed the harvester away from the dropoff building (radius-2) forever,
+   fighting approach. Fixed by skipping non-movable (large-radius) entities in separation.
+3. Power deficit slowed construction/production (verified 0.5x).
+
+**Tests added:** `economy` (8) → 69 total pass. Covers gather→drop credits, full-silo blocking,
+gas (no credits), power-deficit production slowdown, prefab-vs-growth timers, Root-Network range,
+production spawn + cost, race-specific base deploy.
+
+**DoD verification:**
+- `npm run build` → exit 0, strict TS clean ✓
+- `npm run test` → 69/69 pass ✓
+- `npm run dev` → serves page ✓
+- Browser economy loop (deploy base, harvest, build, train) **pending a human browser pass**.
+
+**Next:** Chunk 6 — combat, squads & cover, traps, death, shroud + fog.

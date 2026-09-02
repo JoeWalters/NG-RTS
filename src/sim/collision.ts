@@ -161,6 +161,8 @@ export function applySeparation(world: SepWorld): void {
       const a = all[i];
       const b = all[j];
       if (a.team !== b.team || !a.radius || !b.radius) continue;
+      // skip non-movable entities (buildings) — they should not be pushed apart
+      if (a.radius >= 1.5 || b.radius >= 1.5) continue;
       const dx = b.pos.x - a.pos.x;
       const dy = b.pos.y - a.pos.y;
       const rr = a.radius + b.radius;

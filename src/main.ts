@@ -1,6 +1,7 @@
 import { Game } from './core/game.js';
 import { Renderer } from './render/renderer.js';
 import { Unit } from './sim/unit.js';
+import { Building } from './sim/building.js';
 import { BASE_BLUE, BASE_RED, MAP_SIZE, Tile } from './sim/map.js';
 import { DEFAULT_TICK } from './core/loop.js';
 import type { CameraInput } from './render/camera.js';
@@ -59,6 +60,8 @@ window.addEventListener('keydown', (e) => {
     case 'escape': renderer.selection.clear(); break;
     case 'h': spawnHarvesterAtCamera(); break;
     case 'm': spawnDeployableAtCamera(); break;
+    case 'n': spawnWorldrootAtCamera(); break;
+    case 'e': startEconomy(0); startEconomy(1); break;
   }
 });
 window.addEventListener('keyup', (e) => {
@@ -243,7 +246,37 @@ function spawnDeployableAtCamera(): void {
   const x = Math.max(1, Math.min(MAP_SIZE - 1, Math.round(renderer.controller.x)));
   const y = Math.max(1, Math.min(MAP_SIZE - 1, Math.round(renderer.controller.y)));
   const u = game.registry.get(game.spawnUnit(x, y, 0)) as Unit;
-  u.deployable = true; // debug Mule/Worldroot stand-in (races in Chunk 5)
+  u.deployable = true; // debug Foundry-Mule (races in Chunk 5)
+}
+
+function spawnWorldrootAtCamera(): void {
+  const x = Math.max(1, Math.min(MAP_SIZE - 1, Math.round(renderer.controller.x)));
+  const y = Math.max(1, Math.min(MAP_SIZE - 1, Math.round(renderer.controller.y)));
+  const u = game.registry.get(game.spawnUnit(x, y, 1)) as Unit;
+  u.deployable = true; // debug Worldroot (Thornkin)
+}
+
+/** Browser economy demo: ensure a base, spawn a harvester, auto-harvest a field. */
+function startEconomy(team: number): void {
+  const basePos = team === 0 ? BASE_BLUE : BASE_RED;
+  const hasBase = game.registry.all().some(
+    (e) => e instanceof Building && e.team === team && e.role === 'base'
+  );
+  if (!hasBase) {
+    game.placeBuilding(team === 0 ? 'foundry' : 'heartwood', basePos.x, basePos.y, team);
+  }
+  const h = game.registry.get(game.spawnUnit(basePos.x + 2, basePos.y + 2, team)) as Unit;
+  h.role = 'harvester';
+  let f: { x: number; y: number } | null = null;
+  let bestD = Infinity;
+  for (const ff of game.economy.fields) {
+    const d = Math.hypot(ff.x - basePos.x, ff.y - basePos.y);
+    if (d < bestD) {
+      bestD = d;
+      f = ff;
+    }
+  }
+  if (f) h.issue({ kind: 'harvest', target: { x: f.x, y: f.y } });
 }
 
 // --- fixed-step loop with interpolation + camera input ---

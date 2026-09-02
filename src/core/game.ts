@@ -1,11 +1,13 @@
 import { generateMap, GridMap } from '../sim/map.js';
 import { EntityRegistry } from '../sim/entities.js';
 import { Unit } from '../sim/unit.js';
-import { Building } from '../sim/building.js';
+import { Building, placeBuilding } from '../sim/building.js';
+import { buildingDef } from '../sim/races.js';
 import { Player } from '../sim/player.js';
 import { FixedLoop, DEFAULT_TICK } from './loop.js';
 import { OrderSystem } from '../sim/order.js';
 import { MovementSystem } from '../sim/movement.js';
+import { EconomySystem } from '../sim/economy.js';
 
 /**
  * Top-level Game (Chunk 1 skeleton): owns map, players, and entity registry,
@@ -23,6 +25,7 @@ export class Game {
   readonly registry = new EntityRegistry();
   readonly orders: OrderSystem;
   readonly movement: MovementSystem;
+  readonly economy: EconomySystem;
   worldTime = 0;
   tickCount = 0;
 
@@ -32,8 +35,11 @@ export class Game {
     this.seed = seed;
     this.map = generateMap(seed);
     this.players = [new Player(0), new Player(1)];
+    this.players[0].credits = 500;
+    this.players[1].credits = 500;
     this.orders = new OrderSystem(this);
     this.movement = new MovementSystem(this);
+    this.economy = new EconomySystem(this);
     this.loop = new FixedLoop((dt: number) => this.step(dt), { tick: DEFAULT_TICK });
   }
 
@@ -66,11 +72,15 @@ export class Game {
   }
 
   spawnBuilding(x: number, y: number, team: number): number {
-    return this.registry.add(new Building({ x, y }, team));
+    return this.registry.add(new Building({ x, y }, team, buildingDef('wall')));
+  }
+
+  /** Place a building (validates cost, tiles, range). Returns it or null. */
+  placeBuilding(kind: string, x: number, y: number, team: number): Building | null {
+    return placeBuilding(this, kind, x, y, team);
   }
 
   // --- placeholder subsystems (implemented in later chunks) ---
-  private economy = { update: (_dt: number) => {} };
   private power = { update: (_dt: number) => {} };
   private combat = { update: (_dt: number) => {} };
   private fog = { update: (_dt: number) => {} };

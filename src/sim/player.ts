@@ -5,6 +5,7 @@
 export class Player {
   team: number;
   credits = 0; // main currency (ore-derived)
+  gas = 0; // secondary resource (vents) for tech/hero (Chunk 8)
   powerProduced = 0;
   powerConsumed = 0;
   siloCapacity = 1000;

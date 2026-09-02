@@ -1,6 +1,7 @@
 import type { Game } from '../core/game.js';
 import { Unit } from './unit.js';
 import { Building } from './building.js';
+import { buildingDef, RACES } from './races.js';
 import type { World } from './pathfind.js';
 
 export type OrderKind =
@@ -202,12 +203,12 @@ export class OrderSystem {
       u.harvestTargetId = order.targetId ?? 0;
       u.harvestPoint = order.target ? { ...order.target } : undefined;
     }
-    const point = order.target;
-    if (point) {
-      const d = Math.hypot(point.x - u.pos.x, point.y - u.pos.y);
-      if (d > 1.0 && u.reached) u.moveTo(point.x, point.y, this.world);
+    // EconomySystem owns harvester movement once a field is assigned
+    if (!u.economyActive && order.target) {
+      const d = Math.hypot(order.target.x - u.pos.x, order.target.y - u.pos.y);
+      if (d > 1.0 && u.reached) u.moveTo(order.target.x, order.target.y, this.world);
     }
-    // stay harvesting while the field is valid; Chunk 5 does the economy
+    // stay harvesting while the order is active; Chunk 5 economy does the rest
   }
 
   private doBuild(u: Unit, order: Order): void {
@@ -240,8 +241,12 @@ export class OrderSystem {
     }
     u.orders.shift();
     this.game.registry.remove(u);
-    const b = new Building({ x: u.pos.x, y: u.pos.y }, u.team);
+    // deploy becomes the race's base building (Foundry-Mule -> Foundry,
+    // Worldroot -> Heartwood)
+    const race = RACES[u.team];
+    const b = new Building({ x: u.pos.x, y: u.pos.y }, u.team, buildingDef(race.baseKind));
     this.game.registry.add(b);
+    this.game.map.occupy(gx, gy, b.id);
     u.orderState = 'deploying';
   }
 }

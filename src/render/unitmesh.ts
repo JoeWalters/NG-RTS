@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { Entity } from '../sim/entities.js';
+import type { Building } from '../sim/building.js';
 
 export interface UnitMesh {
   group: THREE.Group;
@@ -7,6 +8,8 @@ export interface UnitMesh {
   prevY: number;
   curX: number;
   curY: number;
+  progress: number; // 0..1 construction progress (buildings)
+  isBuilding: boolean;
 }
 
 const TEAM_COLORS = [0x3a9cff, 0xd44a4a]; // Forgefolk blue, Thornkin red
@@ -59,6 +62,8 @@ export class UnitMeshRegistry {
       prevY: e.pos.y,
       curX: e.pos.x,
       curY: e.pos.y,
+      progress: 1,
+      isBuilding: e.kind === 'building',
     });
     this.targets.push(group);
   }
@@ -91,10 +96,14 @@ export class UnitMeshRegistry {
     if (m) {
       m.curX = e.pos.x;
       m.curY = e.pos.y;
+      if (m.isBuilding) {
+        const b = e as Building;
+        m.progress = b.active ? 1 : Math.min(1, Math.max(0, b.buildProgress / b.buildTime));
+      }
     }
   }
 
-  /** Position meshes at lerp(prev, cur, alpha). */
+  /** Position meshes at lerp(prev, cur, alpha); scale buildings by progress. */
   render(alpha: number): void {
     for (const m of this.byId.values()) {
       m.group.position.set(
@@ -102,6 +111,12 @@ export class UnitMeshRegistry {
         0,
         m.prevY + (m.curY - m.prevY) * alpha
       );
+      if (m.isBuilding) {
+        const s = 0.4 + 0.6 * m.progress;
+        m.group.scale.set(s, s, s);
+      } else {
+        m.group.scale.set(1, 1, 1);
+      }
     }
   }
 

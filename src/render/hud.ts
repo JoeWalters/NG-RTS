@@ -9,7 +9,7 @@ export function formatSelection(units: Unit[], player: Player): string {
     : 'No selection';
   const rest = units.length > 1 ? ` (+${units.length - 1} more)` : '';
   const power = player.atPowerDeficit ? 'LOW POWER' : `${player.powerProduced}/${player.powerConsumed}`;
-  return `${head}${rest} | Credits ${player.credits} | Power ${power}`;
+  return `${head}${rest} | Credits ${player.credits} | Gas ${player.gas} | Power ${power}`;
 }
 
 /** Minimal DOM overlay (full HUD comes in Chunk 7). */
