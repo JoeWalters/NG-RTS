@@ -125,3 +125,36 @@ clamp/zoom, ortho apply.
   **pending a human browser pass** — cannot be verified headlessly (needs WebGL).
 
 **Next:** Chunk 4 — ordering, selection, and movement orders (input → sim).
+
+---
+
+## Chunk 4 — Ordering, selection, and movement orders (input → sim) (DONE)
+
+**Built:**
+- `src/sim/order.ts`: `Order` union (move/attackmove/attack/harvest/build/stop/deploy/garrison/trap),
+  `OrderQueue`, and `OrderSystem` — drives each unit's current order to completion then advances
+  the queue. Handles move (path to goal), attack (explicit targetId or nearest-enemy acquisition,
+  moves to weapon range, stays active while target alive), harvest (moves to field, sets state),
+  build (moves to site), deploy (deployable unit → Building), stop (preempts queue).
+- `src/sim/unit.ts`: `orders` queue, `orderState`, attack/harvest/build targets, `deployable`,
+  `issue()` (stop preempts), `stopMovement`, `faceTowards`, `reached` getter.
+- `src/sim/movement.ts`: `MovementSystem` — drives all units' path-follow + separation each tick.
+- `src/core/game.ts`: wired `OrderSystem` (before movement) + `MovementSystem` into the fixed update.
+- `src/render/hud.ts`: minimal HUD with pure `formatSelection()` (id, kind, hp, credits, power).
+- `src/main.ts`: right-click context orders (attack enemy / harvest ore-gems / deploy deployable /
+  move), keys `A` attack-move, `S` stop, `G` gather, `D` deploy, `Esc` deselect, `Ctrl+num` groups,
+  `H` harvester, `M` deployable Mule, HUD readout. Camera pan switched to arrow keys (resolves the
+  WASD-pan vs A-attack conflict; edge-pan + wheel + middle-drag kept).
+
+**Tests added:** `order` (10) → 61 total pass. Covers move-to-goal, attack acquisition (explicit +
+nearest), attack end-on-target-death, harvest state, deploy convert/reject, sequential queue,
+stop preemption.
+
+**DoD verification:**
+- `npm run build` → exit 0, strict TS clean ✓
+- `npm run test` → 61/61 pass ✓
+- `npm run dev` → serves page ✓
+- Browser checks (right-click move/attack/harvest/deploy, click/box select, keys) **pending a human
+  browser pass** (needs WebGL).
+
+**Next:** Chunk 5 — economy: harvesters, ore+gas, power grid, race build styles, production.

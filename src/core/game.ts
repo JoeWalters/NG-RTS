@@ -4,6 +4,8 @@ import { Unit } from '../sim/unit.js';
 import { Building } from '../sim/building.js';
 import { Player } from '../sim/player.js';
 import { FixedLoop, DEFAULT_TICK } from './loop.js';
+import { OrderSystem } from '../sim/order.js';
+import { MovementSystem } from '../sim/movement.js';
 
 /**
  * Top-level Game (Chunk 1 skeleton): owns map, players, and entity registry,
@@ -19,6 +21,8 @@ export class Game {
   readonly map: GridMap;
   readonly players: Player[];
   readonly registry = new EntityRegistry();
+  readonly orders: OrderSystem;
+  readonly movement: MovementSystem;
   worldTime = 0;
   tickCount = 0;
 
@@ -28,6 +32,8 @@ export class Game {
     this.seed = seed;
     this.map = generateMap(seed);
     this.players = [new Player(0), new Player(1)];
+    this.orders = new OrderSystem(this);
+    this.movement = new MovementSystem(this);
     this.loop = new FixedLoop((dt: number) => this.step(dt), { tick: DEFAULT_TICK });
   }
 
@@ -40,7 +46,7 @@ export class Game {
 
   /** Subsystems run in a fixed order — order matters for determinism. */
   private update(dt: number): void {
-    this.orders.update(dt);
+    this.orders.update();
     this.movement.update(dt);
     this.economy.update(dt);
     this.power.update(dt);
@@ -64,8 +70,6 @@ export class Game {
   }
 
   // --- placeholder subsystems (implemented in later chunks) ---
-  private orders = { update: (_dt: number) => {} };
-  private movement = { update: (_dt: number) => {} };
   private economy = { update: (_dt: number) => {} };
   private power = { update: (_dt: number) => {} };
   private combat = { update: (_dt: number) => {} };
