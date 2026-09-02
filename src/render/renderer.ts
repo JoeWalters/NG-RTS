@@ -31,9 +31,9 @@ export class Renderer {
 
     this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 1000);
 
-    // lights
-    this.scene.add(new THREE.HemisphereLight(0xffffff, 0x404040, 1.1));
-    const dir = new THREE.DirectionalLight(0xffffff, 1.4);
+    // lights (kept modest so tile colors read saturated, not washed out)
+    this.scene.add(new THREE.HemisphereLight(0xffffff, 0x303030, 0.85));
+    const dir = new THREE.DirectionalLight(0xffffff, 1.25);
     dir.position.set(20, 40, 10);
     this.scene.add(dir);
 

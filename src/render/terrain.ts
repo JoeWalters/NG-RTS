@@ -28,7 +28,7 @@ const TILE_COLORS: Record<number, number[]> = {
  * texture so scene-graph tests can run without a browser.
  */
 function makeGroundTexture(map: GridMap): THREE.Texture {
-  const SCALE = 4; // texel pixels per tile, for a smoother ground
+  const SCALE = 4; // texel pixels per tile (uniform fill — no woven noise)
   const W = map.size * SCALE;
   const H = map.size * SCALE;
   const data = new Uint8Array(W * H * 4);
@@ -36,15 +36,18 @@ function makeGroundTexture(map: GridMap): THREE.Texture {
     for (let x = 0; x < map.size; x++) {
       const pal = TILE_COLORS[map.tileAt(x, y)] ?? TILE_COLORS[Tile.Ground];
       const n = pal.length / 3;
-      const base = Math.abs((x * 7 + y * 13) ^ (x * y)) % n;
+      const variant = Math.abs((x * 7 + y * 13) ^ (x * y)) % n;
+      const shade = 0.92 + 0.08 * ((Math.abs(x * 31 + y * 57) % 100) / 100);
+      const i = variant * 3;
+      const r = pal[i] * shade;
+      const g = pal[i + 1] * shade;
+      const b = pal[i + 2] * shade;
       for (let sy = 0; sy < SCALE; sy++) {
         for (let sx = 0; sx < SCALE; sx++) {
-          const shade = 0.9 + 0.1 * (((x * 3 + y * 5 + sx * 7 + sy * 11) % 10) / 10);
-          const i = base * 3;
           const p = ((y * SCALE + sy) * W + (x * SCALE + sx)) * 4;
-          data[p] = pal[i] * shade;
-          data[p + 1] = pal[i + 1] * shade;
-          data[p + 2] = pal[i + 2] * shade;
+          data[p] = r;
+          data[p + 1] = g;
+          data[p + 2] = b;
           data[p + 3] = 255;
         }
       }
@@ -53,6 +56,7 @@ function makeGroundTexture(map: GridMap): THREE.Texture {
   const tex = new THREE.DataTexture(data, W, H);
   tex.needsUpdate = true;
   tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.colorSpace = THREE.SRGBColorSpace; // color data, not linear
   tex.magFilter = THREE.LinearFilter;
   tex.minFilter = THREE.LinearFilter;
   return tex;

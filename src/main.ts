@@ -20,14 +20,7 @@ const seed = Number(new URLSearchParams(location.search).get('seed') ?? 12345);
 const game = new Game(seed);
 game.aiEnabled = true; // skirmish: Thornkin opponent
 const renderer = new Renderer(app, game);
-
-// spawn two harvesters that walk toward each other so movement is visible
-const idA = game.spawnUnit(BASE_BLUE.x + 2, BASE_BLUE.y + 2, 0);
-const idB = game.spawnUnit(BASE_RED.x - 2, BASE_RED.y - 2, 1);
-const uA = game.registry.get(idA) as Unit;
-const uB = game.registry.get(idB) as Unit;
-uA.moveTo(BASE_RED.x, BASE_RED.y, { map: game.map, registry: game.registry });
-uB.moveTo(BASE_BLUE.x, BASE_BLUE.y, { map: game.map, registry: game.registry });
+setupGame();
 
 const hud = new HUD(document.getElementById('hud-bottom')!);
 const mixer = new SoundMixer();
@@ -297,7 +290,47 @@ function spawnWorldrootAtCamera(): void {
   u.deployable = true; // debug Worldroot (Thornkin)
 }
 
-/** Browser economy demo: ensure a base, spawn a harvester, auto-harvest a field. */
+/** Default playable skirmish setup: team 0 gets a base, harvesters, a squad. */
+function setupGame(): void {
+  const p0 = game.players[0];
+  p0.credits = 800;
+  if (!game.registry.all().some((e) => e instanceof Building && e.team === 0 && e.role === 'base')) {
+    game.placeBuilding('foundry', BASE_BLUE.x, BASE_BLUE.y, 0);
+  }
+  const base = game.registry
+    .all()
+    .find((e) => e instanceof Building && e.team === 0 && e.role === 'base') as Building;
+  const bx = base.pos.x;
+  const by = base.pos.y;
+  for (let i = 0; i < 2; i++) {
+    const h = game.registry.get(game.spawnUnit(bx + 2 + i, by + 2, 0)) as Unit;
+    h.role = 'harvester';
+    const f = nearestFieldTo(bx, by);
+    if (f) h.issue({ kind: 'harvest', target: { x: f.x, y: f.y } });
+  }
+  const squad = game.registry.get(game.spawnUnit(bx + 4, by + 4, 0)) as Unit;
+  squad.kindName = 'rifleman';
+  squad.squadSize = 3;
+  squad.maxSquadSize = 3;
+  squad.hpPerMan = 100;
+  squad.maxHp = 300;
+  squad.hp = 300;
+}
+
+function nearestFieldTo(x: number, y: number): { x: number; y: number } | null {
+  let best: { x: number; y: number } | null = null;
+  let bd = Infinity;
+  for (const f of game.economy.fields) {
+    if (f.kind !== 'ore') continue;
+    const d = Math.hypot(f.x - x, f.y - y);
+    if (d < bd) {
+      bd = d;
+      best = f;
+    }
+  }
+  return best;
+}
+
 function startEconomy(team: number): void {
   const basePos = team === 0 ? BASE_BLUE : BASE_RED;
   const hasBase = game.registry.all().some(
