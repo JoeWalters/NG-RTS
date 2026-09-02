@@ -198,3 +198,35 @@ production spawn + cost, race-specific base deploy.
 - Browser economy loop (deploy base, harvest, build, train) **pending a human browser pass**.
 
 **Next:** Chunk 6 — combat, squads & cover, traps, death, shroud + fog.
+
+---
+
+## Chunk 6 — Combat, squads & cover, traps, death, shroud + fog (DONE)
+
+**Built:**
+- `src/sim/combat.ts`: `CombatSystem` — attack orders fire projectiles that travel and apply
+  damage on arrival; cover modifies damage; rear-hit bonus (directional armor) on vehicles;
+  squad fire applies suppression; auto-acquire for attack-move; damage only to visible targets.
+- `src/sim/squads.ts`: squad pool sharing + `reinforce` (cost per man, heals); `PIN_THRESHOLD`.
+- `src/sim/cover.ts`: high/low cover from tree tiles (0.5x / 0.7x).
+- `src/sim/traps.ts`: `Trap` entity + `TrapSystem` — bramble (damage+slow), tar (slow),
+  steam (damage); trigger once per trap, fog-hidden until stepped on.
+- `src/sim/fog.ts`: `FogSystem` — per-player shroud + visibility grids; explored persists.
+- `src/sim/ai.ts`: scripted Thornkin — deploy base, harvest, produce army, attack-move.
+- `src/core/game.ts`: wired combat/fog/traps/ai (ai opt-in `aiEnabled`), `checkEnd` (lose base →
+  defeat). Unit gained squad/combat fields, `moveSpeed` (pinned/slow), `maxSquadSize`.
+- Renderer removes dead meshes and hides unscouted enemy units via fog.
+
+**Notes:** garrison is a stub for now; projectile visuals/fx deferred to render polish.
+
+**Tests added:** `combat` (10) → 79 total pass. Covers DPS, death-by-projectile, rear-hit bonus,
+suppression pin, cover reduction, squad reinforce, trap trigger-once, fog hide/explore-persists,
+checkEnd, AI base+harvesters.
+
+**DoD verification:**
+- `npm run build` → exit 0, strict TS clean ✓
+- `npm run test` → 79/79 pass ✓
+- `npm run dev` → serves page ✓
+- Browser fight/cover/trap/fog visuals **pending a human browser pass** (needs WebGL).
+
+**Next:** Chunk 7 — full UI: race sidebar, minimap w/ shroud, squad bars, hero panel, portraits.

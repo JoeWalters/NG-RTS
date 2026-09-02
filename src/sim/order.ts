@@ -1,6 +1,7 @@
 import type { Game } from '../core/game.js';
 import { Unit } from './unit.js';
 import { Building } from './building.js';
+import { Trap } from './traps.js';
 import { buildingDef, RACES } from './races.js';
 import type { World } from './pathfind.js';
 
@@ -110,11 +111,19 @@ export class OrderSystem {
         u.orderState = 'idle';
         break;
       case 'garrison':
-      case 'trap':
-        // Chunk 6 fills these in; for now mark and finish the order
+        // Chunk 6 garrison is a no-op stub for now
         u.orderState = 'garrisoned';
         u.orders.shift();
         break;
+      case 'trap': {
+        const kind = order.building === 'tar' ? 'tar' : order.building === 'steam' ? 'steam' : 'bramble';
+        const at = order.target ?? u.pos;
+        const trap = new Trap({ x: at.x, y: at.y }, u.team, kind);
+        this.game.registry.add(trap);
+        u.orders.shift();
+        u.orderState = 'idle';
+        break;
+      }
     }
   }
 

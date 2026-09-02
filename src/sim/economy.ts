@@ -263,8 +263,12 @@ export class EconomySystem {
     const u = new Unit({ x: b.pos.x + 1.5, y: b.pos.y + 1.5 }, b.team);
     u.kindName = kind;
     u.role = def.role ?? 'unit';
-    u.hp = def.hp;
-    u.maxHp = def.hp;
+    // infantry are squads (3 men sharing a pool); vehicles/harvesters are single
+    u.squadSize = def.from === 'barracks' ? 3 : 1;
+    u.maxSquadSize = u.squadSize;
+    u.hpPerMan = def.hp;
+    u.maxHp = u.squadSize * def.hp;
+    u.hp = u.maxHp;
     this.game.registry.add(u);
   }
 

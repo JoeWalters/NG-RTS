@@ -45,11 +45,19 @@ export class Renderer {
     this.setSize(container.clientWidth, container.clientHeight);
   }
 
-  /** Sync every live entity into meshes (adds new ones, removes dead later). */
+  /** Sync every live entity into meshes (adds new, removes dead, applies fog). */
   sync(game: Game): void {
     for (const e of game.registry.all()) {
+      if (!e.alive) {
+        this.units.remove(e.id);
+        continue;
+      }
       if (!this.units.has(e.id)) this.units.add(e);
-      else this.units.sync(e);
+      else {
+        this.units.sync(e);
+        const m = this.units.get(e.id);
+        if (m) m.group.visible = e.team === 0 || game.fog.isVisible(0, e.pos.x, e.pos.y);
+      }
     }
   }
 

@@ -2,6 +2,7 @@ import { Entity } from './entities.js';
 import { findPath, smoothPath, PathFollow, World, Waypoint } from './pathfind.js';
 import { applySeparation } from './collision.js';
 import { OrderQueue, Order, UnitOrderState } from './order.js';
+import { PIN_THRESHOLD } from './squads.js';
 
 /**
  * Unit (mobile) — Chunk 2 adds movement: moveTo / attackMoveTo / path following.
@@ -22,6 +23,18 @@ export class Unit extends Entity {
   economyActive = false;
   /** visual: harvester is carrying cargo */
   carrying = false;
+
+  // --- Chunk 6 combat / squads ---
+  squadSize = 1;
+  maxSquadSize = 1;
+  hpPerMan = 100;
+  suppression = 0;
+  fireRate = 1;
+  cooldown = 0;
+  weaponRange = 2.5;
+  damage = 10;
+  sightRadius = 8;
+  slowTimer = 0;
 
   // --- ordering (Chunk 4) ---
   readonly orders = new OrderQueue();
@@ -74,6 +87,18 @@ export class Unit extends Entity {
 
   get waypoints(): Waypoint[] {
     return this.mover.path;
+  }
+
+  /** effective move speed: pinned and/or slowed units move slower */
+  get moveSpeed(): number {
+    let s = this.speed;
+    if (this.suppression >= PIN_THRESHOLD) s *= 0.5;
+    if (this.slowTimer > 0) s *= 0.5;
+    return s;
+  }
+
+  get pinned(): boolean {
+    return this.suppression >= PIN_THRESHOLD;
   }
 
   /** Push an order onto the queue. `stop` preempts any pending orders. */

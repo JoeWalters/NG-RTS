@@ -16,6 +16,7 @@ if (!app) throw new Error('missing #app mount');
 // --- game + renderer ---
 const seed = Number(new URLSearchParams(location.search).get('seed') ?? 12345);
 const game = new Game(seed);
+game.aiEnabled = true; // skirmish: Thornkin opponent
 const renderer = new Renderer(app, game);
 
 // spawn two harvesters that walk toward each other so movement is visible
