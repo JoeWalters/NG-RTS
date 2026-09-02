@@ -258,3 +258,53 @@ sidebar affordability/exclusion, resource/selection formatting.
 - Browser sidebar/build/ghost/pause/overlay visuals **pending a human browser pass** (needs WebGL).
 
 **Next:** Chunk 8 — heroes, The Hollow, control points, tech tiers, balance.
+
+---
+
+## Decision notes — modeling / sound / visuals (recorded for future chunks)
+
+- **Screenshot pipeline (working):** `npm run dev` + headless Google Chrome
+  `--headless=new --use-angle=swiftshader --screenshot=...` captures the WebGL canvas; the
+  `read` tool delivers it as an image attachment. **Any vision-capable model can see the game.**
+- **Asset policy updated (PLAN.md constraint 4):** **CC0 / public-domain** free packs (Kenney,
+  Quaternius, PolyHaven, OpenGameArt) are allowed — bundled locally in `assets/`, no runtime
+  network, no accounts. Procedural generation stays as the fallback.
+- **Graphics reality:** current visuals are placeholder primitives (boxes/cones, flat terrain,
+  no fog-on-3D, no FX). Legibility pass + CC0 low-poly model integration can land **better than
+  Warcraft 2** (stylized); matching Warcraft 3 needs real art we don't plan to source.
+- **Sound:** fully procedural Web Audio synth (Chunk 9); no samples licensed.
+- **Known gaps:** no fog/shroud on the 3D view, no projectiles/FX render, no health bars yet.
+
+**Next:** Chunk 8 implementation below.
+
+---
+
+## Chunk 8 — Heroes, The Hollow, control points, tech tiers, balance (DONE)
+
+**Built:**
+- `src/sim/tech.ts`: gas-gated 3 tech tiers (`advanceTech`, costs 100/300 gas).
+- `src/sim/powers.ts`: hero abilities — `steamStrike` (AoE artillery call-in),
+  `rootGrasp` (root an enemy, moveSpeed 0).
+- `src/sim/heroes.ts`: `HeroSystem` — heroes revive at their base after death.
+- `src/sim/hollow.ts`: `HollowSystem` — burrow building spawns Blight-Grub minions (cap 8).
+- `src/sim/controlpoints.ts`: `ControlPointSystem` — 3 neutral points, capture by standing,
+  trickle income, victory timer (hold 2/3 for 30s).
+- `races.ts`: `tier` on units (forgetank/barkbehemoth tier 1), `hollow` building, `blightgrub`.
+- `player.ts`/`unit.ts`: `techTier`, `holdTimer`, `rooted`, `isHero`, `reviveTimer`;
+  PathFollow uses `moveSpeed` (respects rooted).
+- `ai.ts`: AI builds a Hollow, fields its Warden hero, pushes the nearest control point.
+- `game.ts`: wired heroes/hollow/controlPoints + `triggerWin` (control-point victory).
+
+**Tests added:** `chunk8` (7) → 91 total pass. Covers tech gating, steam-strike AoE, root-grasp
+root/expire, hero revive, hollow minion cap, control-point capture/income/victory.
+
+**DoD verification:**
+- `npm run build` → exit 0, strict TS clean ✓
+- `npm run test` → 91/91 pass ✓
+- `npm run dev` → serves page ✓
+- Browser hero/hollow/control-point/tech visuals **pending a human browser pass**.
+
+**Notes:** balance pass is still pending (constants in `config.ts`); detailed tech upgrades
+(stat tiers) deferred; control points currently not rendered on the 3D view (minimap only).
+
+**Next:** Chunk 9 — audio, polish, optimization, robustness, packaging.

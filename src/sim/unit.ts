@@ -35,6 +35,11 @@ export class Unit extends Entity {
   damage = 10;
   sightRadius = 8;
   slowTimer = 0;
+  /** rooted: cannot move (root-grasp) */
+  rooted = 0;
+  /** hero units revive after death */
+  isHero = false;
+  reviveTimer = 0;
 
   // --- ordering (Chunk 4) ---
   readonly orders = new OrderQueue();
@@ -89,9 +94,10 @@ export class Unit extends Entity {
     return this.mover.path;
   }
 
-  /** effective move speed: pinned and/or slowed units move slower */
+  /** effective move speed: rooted/pinned/slowed units move slower */
   get moveSpeed(): number {
     let s = this.speed;
+    if (this.rooted > 0) return 0;
     if (this.suppression >= PIN_THRESHOLD) s *= 0.5;
     if (this.slowTimer > 0) s *= 0.5;
     return s;

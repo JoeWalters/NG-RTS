@@ -10,6 +10,10 @@ export class Player {
   powerConsumed = 0;
   siloCapacity = 1000;
   siloUsed = 0;
+  /** 0..2 tech tier (gas-gated) */
+  techTier = 0;
+  /** control-point victory hold timer */
+  holdTimer = 0;
   /** number of harvesters owned (for idle-harvester selection later) */
   harvesterCount = 0;
 

@@ -240,7 +240,7 @@ export class PathFollow {
       return;
     }
 
-    const step = unit.speed * dt;
+    const step = unit.moveSpeed * dt;
     const nx = unit.pos.x + (dx / dist) * step;
     const ny = unit.pos.y + (dy / dist) * step;
     const res = moveEntity(unit, nx - unit.pos.x, ny - unit.pos.y, world);

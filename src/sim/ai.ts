@@ -12,6 +12,7 @@ export class AISystem {
   private nextHarvester = 0;
   private nextTrain = 0;
   private attacking = false;
+  private heroSpawned = false;
 
   constructor(private game: Game) {}
 
@@ -20,6 +21,8 @@ export class AISystem {
     this.ensureBase();
     this.ensureHarvesters();
     this.ensureArmy();
+    this.ensureHollow();
+    this.ensureHero();
     this.maybeAttack();
   }
 
@@ -96,13 +99,49 @@ export class AISystem {
     }
   }
 
+  private ensureHollow(): void {
+    if (!this.hasBase()) return;
+    const hasHollow = this.game.registry
+      .all()
+      .some((e) => e instanceof Building && e.team === 1 && e.role === 'hollow');
+    if (hasHollow) return;
+    const base = this.game.registry
+      .all()
+      .find((e) => e instanceof Building && e.team === 1 && e.role === 'base') as Building;
+    this.game.placeBuilding('hollow', base.pos.x + 2, base.pos.y, 1);
+  }
+
+  private ensureHero(): void {
+    if (this.heroSpawned) return;
+    if (!this.hasBase()) return;
+    this.heroSpawned = true;
+    const base = this.game.registry
+      .all()
+      .find((e) => e instanceof Building && e.team === 1 && e.role === 'base') as Building;
+    if (!base) return;
+    const h = this.game.registry.get(this.game.spawnUnit(base.pos.x + 2, base.pos.y + 2, 1)) as Unit;
+    h.isHero = true;
+    h.kindName = 'warden';
+    h.hp = 300;
+    h.maxHp = 300;
+  }
+
   private maybeAttack(): void {
     if (this.attacking) return;
     if (this.countArmy() < 3) return;
+    // push the nearest unowned control point first, else the enemy base
+    let target: { x: number; y: number } | null = null;
+    for (const cp of this.game.controlPoints.points) {
+      if (cp.owner !== 1) {
+        target = { x: cp.pos.x, y: cp.pos.y };
+        break;
+      }
+    }
+    if (!target) target = { x: BASE_BLUE.x, y: BASE_BLUE.y };
     this.attacking = true;
     for (const e of this.game.registry.all()) {
       if (e instanceof Unit && e.team === 1 && e.role !== 'harvester') {
-        (e as Unit).issue({ kind: 'attackmove', target: { x: BASE_BLUE.x, y: BASE_BLUE.y } });
+        (e as Unit).issue({ kind: 'attackmove', target });
       }
     }
   }
