@@ -28,18 +28,10 @@ const TILE_COLORS: Record<number, number[]> = {
  * texture so scene-graph tests can run without a browser.
  */
 function makeGroundTexture(map: GridMap): THREE.Texture {
-  if (typeof document === 'undefined') {
-    const t = new THREE.Texture();
-    t.needsUpdate = true;
-    return t;
-  }
-  const canvas = document.createElement('canvas');
-  const SCALE = 4; // 4 canvas px per tile for a smoother ground
-  canvas.width = map.size * SCALE;
-  canvas.height = map.size * SCALE;
-  const ctx = canvas.getContext('2d')!;
-  ctx.fillStyle = '#000';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const SCALE = 4; // texel pixels per tile, for a smoother ground
+  const W = map.size * SCALE;
+  const H = map.size * SCALE;
+  const data = new Uint8Array(W * H * 4);
   for (let y = 0; y < map.size; y++) {
     for (let x = 0; x < map.size; x++) {
       const pal = TILE_COLORS[map.tileAt(x, y)] ?? TILE_COLORS[Tile.Ground];
@@ -49,20 +41,20 @@ function makeGroundTexture(map: GridMap): THREE.Texture {
         for (let sx = 0; sx < SCALE; sx++) {
           const shade = 0.9 + 0.1 * (((x * 3 + y * 5 + sx * 7 + sy * 11) % 10) / 10);
           const i = base * 3;
-          const r = pal[i] * shade;
-          const g = pal[i + 1] * shade;
-          const b = pal[i + 2] * shade;
-          ctx.fillStyle = `rgb(${r},${g},${b})`;
-          ctx.fillRect(x * SCALE + sx, y * SCALE + sy, 1, 1);
+          const p = ((y * SCALE + sy) * W + (x * SCALE + sx)) * 4;
+          data[p] = pal[i] * shade;
+          data[p + 1] = pal[i + 1] * shade;
+          data[p + 2] = pal[i + 2] * shade;
+          data[p + 3] = 255;
         }
       }
     }
   }
-  const tex = new THREE.CanvasTexture(canvas);
+  const tex = new THREE.DataTexture(data, W, H);
+  tex.needsUpdate = true;
   tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
-  tex.minFilter = THREE.LinearMipmapLinearFilter;
   tex.magFilter = THREE.LinearFilter;
-  tex.generateMipmaps = true;
+  tex.minFilter = THREE.LinearFilter;
   return tex;
 }
 
