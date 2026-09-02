@@ -125,3 +125,108 @@ clamp/zoom, ortho apply.
   **pending a human browser pass** — cannot be verified headlessly (needs WebGL).
 
 **Next:** Chunk 4 — ordering, selection, and movement orders (input → sim).
+
+---
+
+## Chunk 4 — Ordering, selection, and movement orders (input → sim) (DONE)
+
+**Built:**
+- `src/sim/order.ts`: `Order` union (move/attackmove/attack/harvest/build/stop/deploy/garrison/trap),
+  `OrderQueue`, and `OrderSystem` — drives each unit's current order to completion then advances
+  the queue. Handles move (path to goal), attack (explicit targetId or nearest-enemy acquisition,
+  moves to weapon range, stays active while target alive), harvest (moves to field, sets state),
+  build (moves to site), deploy (deployable unit → Building), stop (preempts queue).
+- `src/sim/unit.ts`: `orders` queue, `orderState`, attack/harvest/build targets, `deployable`,
+  `issue()` (stop preempts), `stopMovement`, `faceTowards`, `reached` getter.
+- `src/sim/movement.ts`: `MovementSystem` — drives all units' path-follow + separation each tick.
+- `src/core/game.ts`: wired `OrderSystem` (before movement) + `MovementSystem` into the fixed update.
+- `src/render/hud.ts`: minimal HUD with pure `formatSelection()` (id, kind, hp, credits, power).
+- `src/main.ts`: right-click context orders (attack enemy / harvest ore-gems / deploy deployable /
+  move), keys `A` attack-move, `S` stop, `G` gather, `D` deploy, `Esc` deselect, `Ctrl+num` groups,
+  `H` harvester, `M` deployable Mule, HUD readout. Camera pan switched to arrow keys (resolves the
+  WASD-pan vs A-attack conflict; edge-pan + wheel + middle-drag kept).
+
+**Tests added:** `order` (10) → 61 total pass. Covers move-to-goal, attack acquisition (explicit +
+nearest), attack end-on-target-death, harvest state, deploy convert/reject, sequential queue,
+stop preemption.
+
+**DoD verification:**
+- `npm run build` → exit 0, strict TS clean ✓
+- `npm run test` → 61/61 pass ✓
+- `npm run dev` → serves page ✓
+- Browser checks (right-click move/attack/harvest/deploy, click/box select, keys) **pending a human
+  browser pass** (needs WebGL).
+
+**Next:** Chunk 5 — economy: harvesters, ore+gas, power grid, race build styles, production.
+
+---
+
+## Chunk 5 — Economy: harvesters, ore+gas, power grid, race build styles, production (DONE)
+
+**Built:**
+- `src/sim/races.ts`: `RACES` (Forgefolk prefab-drop vs Thornkin sapling-growth; Root-Network global
+  build), building/unit catalogs with costs, power, build times.
+- `src/sim/building.ts`: `Building` with role, construction progress, power fields, production
+  queue (`enqueue`); `placeBuilding` validates cost/tiles/range and applies race build-mode time.
+- `src/sim/economy.ts`: `EconomySystem` — resource fields (clustered from map ore/gas/gems),
+  harvester gather→carry→drop-off→dump cycles, silo capacity, gas resource, power grid
+  (produced/consumed per player, low-power 0.5x penalty), construction, production queues,
+  field regen.
+- `src/sim/map.ts`: added `Gas` tile + 3 vents (2 near bases, 1 at center).
+- `src/sim/unit.ts`: `role`/`economyActive`/`carrying`/`kindName`; `order.ts` deploy → race base
+  (Foundry-Mule → Foundry, Worldroot → Heartwood); harvest respects economy ownership.
+- `src/core/game.ts`: wired `EconomySystem`, starting credits, `placeBuilding` helper.
+- `render/unitmesh.ts`: building mesh scales with construction progress.
+- `main.ts`: `e` key starts a both-race economy demo (base + harvester + auto-harvest),
+  `n` spawns a Worldroot.
+
+**Bugs found & fixed:**
+1. Harvester pathfinding to the dropoff's own occupied tile → never arrived. Fixed by targeting an
+   adjacent walkable tile.
+2. `applySeparation` pushed the harvester away from the dropoff building (radius-2) forever,
+   fighting approach. Fixed by skipping non-movable (large-radius) entities in separation.
+3. Power deficit slowed construction/production (verified 0.5x).
+
+**Tests added:** `economy` (8) → 69 total pass. Covers gather→drop credits, full-silo blocking,
+gas (no credits), power-deficit production slowdown, prefab-vs-growth timers, Root-Network range,
+production spawn + cost, race-specific base deploy.
+
+**DoD verification:**
+- `npm run build` → exit 0, strict TS clean ✓
+- `npm run test` → 69/69 pass ✓
+- `npm run dev` → serves page ✓
+- Browser economy loop (deploy base, harvest, build, train) **pending a human browser pass**.
+
+**Next:** Chunk 6 — combat, squads & cover, traps, death, shroud + fog.
+
+---
+
+## Chunk 6 — Combat, squads & cover, traps, death, shroud + fog (DONE)
+
+**Built:**
+- `src/sim/combat.ts`: `CombatSystem` — attack orders fire projectiles that travel and apply
+  damage on arrival; cover modifies damage; rear-hit bonus (directional armor) on vehicles;
+  squad fire applies suppression; auto-acquire for attack-move; damage only to visible targets.
+- `src/sim/squads.ts`: squad pool sharing + `reinforce` (cost per man, heals); `PIN_THRESHOLD`.
+- `src/sim/cover.ts`: high/low cover from tree tiles (0.5x / 0.7x).
+- `src/sim/traps.ts`: `Trap` entity + `TrapSystem` — bramble (damage+slow), tar (slow),
+  steam (damage); trigger once per trap, fog-hidden until stepped on.
+- `src/sim/fog.ts`: `FogSystem` — per-player shroud + visibility grids; explored persists.
+- `src/sim/ai.ts`: scripted Thornkin — deploy base, harvest, produce army, attack-move.
+- `src/core/game.ts`: wired combat/fog/traps/ai (ai opt-in `aiEnabled`), `checkEnd` (lose base →
+  defeat). Unit gained squad/combat fields, `moveSpeed` (pinned/slow), `maxSquadSize`.
+- Renderer removes dead meshes and hides unscouted enemy units via fog.
+
+**Notes:** garrison is a stub for now; projectile visuals/fx deferred to render polish.
+
+**Tests added:** `combat` (10) → 79 total pass. Covers DPS, death-by-projectile, rear-hit bonus,
+suppression pin, cover reduction, squad reinforce, trap trigger-once, fog hide/explore-persists,
+checkEnd, AI base+harvesters.
+
+**DoD verification:**
+- `npm run build` → exit 0, strict TS clean ✓
+- `npm run test` → 79/79 pass ✓
+- `npm run dev` → serves page ✓
+- Browser fight/cover/trap/fog visuals **pending a human browser pass** (needs WebGL).
+
+**Next:** Chunk 7 — full UI: race sidebar, minimap w/ shroud, squad bars, hero panel, portraits.

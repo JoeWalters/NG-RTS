@@ -1,9 +1,17 @@
 import { generateMap, GridMap } from '../sim/map.js';
 import { EntityRegistry } from '../sim/entities.js';
 import { Unit } from '../sim/unit.js';
-import { Building } from '../sim/building.js';
+import { Building, placeBuilding } from '../sim/building.js';
+import { buildingDef } from '../sim/races.js';
 import { Player } from '../sim/player.js';
 import { FixedLoop, DEFAULT_TICK } from './loop.js';
+import { OrderSystem } from '../sim/order.js';
+import { MovementSystem } from '../sim/movement.js';
+import { EconomySystem } from '../sim/economy.js';
+import { CombatSystem } from '../sim/combat.js';
+import { FogSystem } from '../sim/fog.js';
+import { TrapSystem } from '../sim/traps.js';
+import { AISystem } from '../sim/ai.js';
 
 /**
  * Top-level Game (Chunk 1 skeleton): owns map, players, and entity registry,
@@ -19,6 +27,17 @@ export class Game {
   readonly map: GridMap;
   readonly players: Player[];
   readonly registry = new EntityRegistry();
+  readonly orders: OrderSystem;
+  readonly movement: MovementSystem;
+  readonly economy: EconomySystem;
+  readonly combat: CombatSystem;
+  readonly fog: FogSystem;
+  readonly traps: TrapSystem;
+  readonly ai: AISystem;
+  /** AI opponent (Thornkin) only runs when enabled — skirmish in main.ts */
+  aiEnabled = false;
+  gameOver = false;
+  winner = -1;
   worldTime = 0;
   tickCount = 0;
 
@@ -28,6 +47,15 @@ export class Game {
     this.seed = seed;
     this.map = generateMap(seed);
     this.players = [new Player(0), new Player(1)];
+    this.players[0].credits = 500;
+    this.players[1].credits = 500;
+    this.orders = new OrderSystem(this);
+    this.movement = new MovementSystem(this);
+    this.economy = new EconomySystem(this);
+    this.combat = new CombatSystem(this);
+    this.fog = new FogSystem(this);
+    this.traps = new TrapSystem(this);
+    this.ai = new AISystem(this);
     this.loop = new FixedLoop((dt: number) => this.step(dt), { tick: DEFAULT_TICK });
   }
 
@@ -40,13 +68,32 @@ export class Game {
 
   /** Subsystems run in a fixed order — order matters for determinism. */
   private update(dt: number): void {
-    this.orders.update(dt);
+    this.orders.update();
     this.movement.update(dt);
     this.economy.update(dt);
-    this.power.update(dt);
     this.combat.update(dt);
-    this.fog.update(dt);
-    this.ai.update(dt);
+    this.fog.update();
+    this.traps.update();
+    if (this.aiEnabled) this.ai.update(dt);
+    this.checkEnd();
+  }
+
+  /** A player who loses their base (Construction Yard / Heartwood) is defeated. */
+  checkEnd(): void {
+    if (this.gameOver) return;
+    const base0 = this.registry
+      .all()
+      .some((e) => e instanceof Building && e.team === 0 && e.role === 'base' && e.alive);
+    const base1 = this.registry
+      .all()
+      .some((e) => e instanceof Building && e.team === 1 && e.role === 'base' && e.alive);
+    if (!base0) {
+      this.gameOver = true;
+      this.winner = 1;
+    } else if (!base1) {
+      this.gameOver = true;
+      this.winner = 0;
+    }
   }
 
   /** Run `seconds` of simulated time synchronously (headless). Returns ticks. */
@@ -60,15 +107,13 @@ export class Game {
   }
 
   spawnBuilding(x: number, y: number, team: number): number {
-    return this.registry.add(new Building({ x, y }, team));
+    return this.registry.add(new Building({ x, y }, team, buildingDef('wall')));
+  }
+
+  /** Place a building (validates cost, tiles, range). Returns it or null. */
+  placeBuilding(kind: string, x: number, y: number, team: number): Building | null {
+    return placeBuilding(this, kind, x, y, team);
   }
 
   // --- placeholder subsystems (implemented in later chunks) ---
-  private orders = { update: (_dt: number) => {} };
-  private movement = { update: (_dt: number) => {} };
-  private economy = { update: (_dt: number) => {} };
-  private power = { update: (_dt: number) => {} };
-  private combat = { update: (_dt: number) => {} };
-  private fog = { update: (_dt: number) => {} };
-  private ai = { update: (_dt: number) => {} };
 }

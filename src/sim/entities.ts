@@ -8,6 +8,8 @@ export class Entity {
   team: number; // 0 = Forgefolk (blue), 1 = Thornkin (red)
   facing = 0; // radians
   alive = true;
+  hp = 100;
+  maxHp = 100;
   /** render/type discriminator: 'unit' | 'building' (set by subclasses) */
   kind?: string;
 

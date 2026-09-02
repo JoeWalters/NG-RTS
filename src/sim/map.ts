@@ -19,6 +19,7 @@ export enum Tile {
   Trees = 2,
   Ore = 3,
   Gems = 4,
+  Gas = 5,
 }
 
 export interface MapPos {
@@ -186,6 +187,11 @@ export function generateMap(seed: number): GridMap {
 
   // Richer gem field at center
   fillCircle(map, CENTER.x, CENTER.y, 6, Tile.Gems, rng, 3);
+
+  // Gas vents: one near each base, one at center (harvesters tap these for gas)
+  map.setTile(BASE_BLUE.x + 7, BASE_BLUE.y + 7, Tile.Gas);
+  map.setTile(BASE_RED.x - 7, BASE_RED.y - 7, Tile.Gas);
+  map.setTile(CENTER.x + 2, CENTER.y + 2, Tile.Gas);
 
   return map;
 }
