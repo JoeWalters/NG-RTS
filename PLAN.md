@@ -16,8 +16,7 @@ and a **verification step** the agent must run before moving on. **Do not skip c
    are exercised directly through the browser's WebGL/Canvas.
 3. **No developer accounts.** Never create Apple Developer IDs, Google Play, itch.io, npm login,
    or any signup. `npm install` of public packages does NOT require an account — that is allowed.
-4. **No paid services, no SaaS, no API keys.** All assets must be generated procedurally or drawn
-   by code (no copyrighted sprites/audio). Everything must be self-contained and offline-capable.
+4. **No paid services, no SaaS, no API keys.** Assets: **no copyrighted material** — but **CC0 / public-domain** free asset packs (Kenney, Quaternius, PolyHaven, OpenGameArt) ARE allowed, provided they are **bundled locally** in `assets/` with **no runtime network** (no accounts, no payment). Procedural generation remains the fallback when no free asset fits. Everything must be self-contained and offline-capable.
 5. **Language/runtime:** TypeScript compiled with Vite. Node 20+ is available (confirmed v20.11.1).
 
 ---

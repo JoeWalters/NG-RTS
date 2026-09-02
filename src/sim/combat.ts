@@ -37,6 +37,7 @@ export class CombatSystem {
       u.cooldown = Math.max(0, u.cooldown - dt);
       u.suppression = Math.max(0, u.suppression - 30 * dt);
       u.slowTimer = Math.max(0, u.slowTimer - dt);
+      u.rooted = Math.max(0, u.rooted - dt);
 
       if (u.attackMove && !u.attackTargetId) {
         const t = this.acquire(u);

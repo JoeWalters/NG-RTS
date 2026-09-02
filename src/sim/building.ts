@@ -2,6 +2,7 @@ import { Entity } from './entities.js';
 import type { BuildingDef, BuildingRole } from './races.js';
 import { buildingDef, unitDef, RACES } from './races.js';
 import type { Game } from '../core/game.js';
+import type { Player } from './player.js';
 
 /**
  * Building — Chunk 5: role, construction (prefab vs growth), power, and a
@@ -35,9 +36,10 @@ export class Building extends Entity {
   hp = 500;
   maxHp = 500;
 
-  /** Queue a unit to be trained/built; deducts cost from the player. */
-  enqueue(unitKind: string, player: { spend(n: number): boolean }): boolean {
+  /** Queue a unit to be trained/built; deducts cost and respects tech tier. */
+  enqueue(unitKind: string, player: Player): boolean {
     const def = unitDef(unitKind);
+    if ((def.tier ?? 0) > player.techTier) return false; // gas-gated tech tier
     if (!player.spend(def.cost)) return false;
     this.queue.push({ kind: unitKind, progress: 0, time: def.buildTime });
     return true;

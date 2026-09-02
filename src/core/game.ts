@@ -12,6 +12,9 @@ import { CombatSystem } from '../sim/combat.js';
 import { FogSystem } from '../sim/fog.js';
 import { TrapSystem } from '../sim/traps.js';
 import { AISystem } from '../sim/ai.js';
+import { HeroSystem } from '../sim/heroes.js';
+import { HollowSystem } from '../sim/hollow.js';
+import { ControlPointSystem } from '../sim/controlpoints.js';
 
 /**
  * Top-level Game (Chunk 1 skeleton): owns map, players, and entity registry,
@@ -34,6 +37,9 @@ export class Game {
   readonly fog: FogSystem;
   readonly traps: TrapSystem;
   readonly ai: AISystem;
+  readonly heroes: HeroSystem;
+  readonly hollow: HollowSystem;
+  readonly controlPoints: ControlPointSystem;
   /** AI opponent (Thornkin) only runs when enabled — skirmish in main.ts */
   aiEnabled = false;
   gameOver = false;
@@ -56,6 +62,9 @@ export class Game {
     this.fog = new FogSystem(this);
     this.traps = new TrapSystem(this);
     this.ai = new AISystem(this);
+    this.heroes = new HeroSystem(this);
+    this.hollow = new HollowSystem(this);
+    this.controlPoints = new ControlPointSystem(this);
     this.loop = new FixedLoop((dt: number) => this.step(dt), { tick: DEFAULT_TICK });
   }
 
@@ -74,6 +83,9 @@ export class Game {
     this.combat.update(dt);
     this.fog.update();
     this.traps.update();
+    this.heroes.update(dt);
+    this.hollow.update(dt);
+    this.controlPoints.update(dt);
     if (this.aiEnabled) this.ai.update(dt);
     this.checkEnd();
   }
@@ -94,6 +106,12 @@ export class Game {
       this.gameOver = true;
       this.winner = 0;
     }
+  }
+
+  /** Control-point victory (and future win conditions) route through here. */
+  triggerWin(team: number): void {
+    this.gameOver = true;
+    this.winner = team;
   }
 
   /** Run `seconds` of simulated time synchronously (headless). Returns ticks. */

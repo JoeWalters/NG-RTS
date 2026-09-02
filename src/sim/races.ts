@@ -55,6 +55,7 @@ export type BuildingRole =
   | 'dropoff'
   | 'barracks'
   | 'factory'
+  | 'hollow'
   | 'defense'
   | 'wall';
 
@@ -77,6 +78,7 @@ export const BUILDINGS: BuildingDef[] = [
   { kind: 'barracks', role: 'barracks', cost: 120, power: -3, buildTime: 6 },
   { kind: 'weaponsfactory', role: 'factory', cost: 200, power: -5, buildTime: 8 },
   { kind: 'behemothpit', role: 'factory', cost: 200, power: -5, buildTime: 8 },
+  { kind: 'hollow', role: 'hollow', cost: 200, power: -2, buildTime: 8 },
   { kind: 'gunnext', role: 'defense', cost: 80, power: -2, buildTime: 4 },
   { kind: 'thornbriar', role: 'defense', cost: 80, power: 0, buildTime: 4 },
   { kind: 'wall', role: 'wall', cost: 30, power: 0, buildTime: 1 },
@@ -87,18 +89,21 @@ export interface UnitDef {
   cost: number;
   buildTime: number;
   from: 'barracks' | 'factory';
-  role?: 'harvester';
+  role?: 'harvester' | 'minion';
   hp: number;
+  /** tech tier required to produce (0 = always) */
+  tier?: number;
 }
 
 /** Shared trainable unit catalog (race-specific units are flavor). */
 export const UNITS: UnitDef[] = [
-  { kind: 'rifleman', cost: 60, buildTime: 2, from: 'barracks', hp: 100 },
-  { kind: 'axethrall', cost: 55, buildTime: 2, from: 'barracks', hp: 110 },
-  { kind: 'scraplorry', cost: 200, buildTime: 3, from: 'factory', role: 'harvester', hp: 150 },
-  { kind: 'marrowtender', cost: 200, buildTime: 3, from: 'factory', role: 'harvester', hp: 150 },
-  { kind: 'forgetank', cost: 250, buildTime: 4, from: 'factory', hp: 250 },
-  { kind: 'barkbehemoth', cost: 250, buildTime: 4, from: 'factory', hp: 300 },
+  { kind: 'rifleman', cost: 60, buildTime: 2, from: 'barracks', hp: 100, tier: 0 },
+  { kind: 'axethrall', cost: 55, buildTime: 2, from: 'barracks', hp: 110, tier: 0 },
+  { kind: 'scraplorry', cost: 200, buildTime: 3, from: 'factory', role: 'harvester', hp: 150, tier: 0 },
+  { kind: 'marrowtender', cost: 200, buildTime: 3, from: 'factory', role: 'harvester', hp: 150, tier: 0 },
+  { kind: 'forgetank', cost: 250, buildTime: 4, from: 'factory', hp: 250, tier: 1 },
+  { kind: 'barkbehemoth', cost: 250, buildTime: 4, from: 'factory', hp: 300, tier: 1 },
+  { kind: 'blightgrub', cost: 30, buildTime: 1, from: 'barracks', role: 'minion', hp: 40, tier: 0 },
 ];
 
 export function buildingDef(kind: string): BuildingDef {
