@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { GridMap, Tile, MAP_SIZE } from '../sim/map.js';
+import { GridMap, Tile } from '../sim/map.js';
 
 export interface TerrainRender {
   ground: THREE.Mesh;
@@ -9,17 +9,17 @@ export interface TerrainRender {
 }
 
 const TILE_COLORS: Record<number, number[]> = {
-  // flat RGB triples per variant
+  // brighter, more saturated palette
   [Tile.Ground]: [
-    0x3f7f4a, 0x3f7f4a, 0x3f7f4a,
-    0x4a8a55, 0x4a8a55, 0x4a8a55,
-    0x35713f, 0x35713f, 0x35713f,
+    0x4c8a52, 0x4c8a52, 0x4c8a52,
+    0x58945e, 0x58945e, 0x58945e,
+    0x3f7a48, 0x3f7a48, 0x3f7a48,
   ],
-  [Tile.Water]: [0x2f6db3, 0x2f6db3, 0x2f6db3],
-  [Tile.Trees]: [0x2e5c3a, 0x2e5c3a, 0x2e5c3a],
-  [Tile.Ore]: [0xd9c14a, 0xd9c14a, 0xd9c14a, 0xc9b83f, 0xc9b83f, 0xc9b83f],
-  [Tile.Gems]: [0x8fd6ff, 0x8fd6ff, 0x8fd6ff, 0xa9e6ff, 0xa9e6ff, 0xa9e6ff],
-  [Tile.Gas]: [0x7fe0c0, 0x7fe0c0, 0x7fe0c0],
+  [Tile.Water]: [0x3a86cc, 0x3a86cc, 0x3a86cc],
+  [Tile.Trees]: [0x2f6b41, 0x2f6b41, 0x2f6b41],
+  [Tile.Ore]: [0xe0c94f, 0xe0c94f, 0xe0c94f, 0xd0bf46, 0xd0bf46, 0xd0bf46],
+  [Tile.Gems]: [0x9fe0ff, 0x9fe0ff, 0x9fe0ff, 0xb5ecff, 0xb5ecff, 0xb5ecff],
+  [Tile.Gas]: [0x8ff2cf, 0x8ff2cf, 0x8ff2cf],
 };
 
 /**
@@ -27,40 +27,59 @@ const TILE_COLORS: Record<number, number[]> = {
  * canvas. In headless (no DOM) environments this returns a plain placeholder
  * texture so scene-graph tests can run without a browser.
  */
-function makeGroundTexture(map: GridMap): THREE.Texture {
-  const SCALE = 4; // texel pixels per tile (uniform fill — no woven noise)
-  const W = map.size * SCALE;
-  const H = map.size * SCALE;
-  const data = new Uint8Array(W * H * 4);
+/**
+ * Build a flat, per-tile colored ground as a single buffer-geometry grid.
+ * Uses vertex colors (no texture upload) so colors render in every browser,
+ * including software-rendered/headless contexts.
+ */
+function buildGroundGeometry(map: GridMap): THREE.BufferGeometry {
+  const n = map.size * map.size;
+  const positions = new Float32Array(n * 4 * 3);
+  const colors = new Float32Array(n * 4 * 3);
+  const indices = new Uint32Array(n * 6);
+  let vi = 0;
+  let ii = 0;
   for (let y = 0; y < map.size; y++) {
     for (let x = 0; x < map.size; x++) {
       const pal = TILE_COLORS[map.tileAt(x, y)] ?? TILE_COLORS[Tile.Ground];
-      const n = pal.length / 3;
-      const variant = Math.abs((x * 7 + y * 13) ^ (x * y)) % n;
+      const nv = pal.length / 3;
+      const variant = Math.abs((x * 7 + y * 13) ^ (x * y)) % nv;
       const shade = 0.92 + 0.08 * ((Math.abs(x * 31 + y * 57) % 100) / 100);
       const i = variant * 3;
-      const r = pal[i] * shade;
-      const g = pal[i + 1] * shade;
-      const b = pal[i + 2] * shade;
-      for (let sy = 0; sy < SCALE; sy++) {
-        for (let sx = 0; sx < SCALE; sx++) {
-          const p = ((y * SCALE + sy) * W + (x * SCALE + sx)) * 4;
-          data[p] = r;
-          data[p + 1] = g;
-          data[p + 2] = b;
-          data[p + 3] = 255;
-        }
+      const r = pal[i] * shade / 255;
+      const g = pal[i + 1] * shade / 255;
+      const b = pal[i + 2] * shade / 255;
+      const corners = [
+        [x, y],
+        [x + 1, y],
+        [x + 1, y + 1],
+        [x, y + 1],
+      ];
+      for (const [cx, cz] of corners) {
+        positions[vi * 3] = cx;
+        positions[vi * 3 + 1] = 0;
+        positions[vi * 3 + 2] = cz;
+        colors[vi * 3] = r;
+        colors[vi * 3 + 1] = g;
+        colors[vi * 3 + 2] = b;
+        vi++;
       }
+      const base = (ii / 6) * 4;
+      indices[ii++] = base;
+      indices[ii++] = base + 1;
+      indices[ii++] = base + 2;
+      indices[ii++] = base;
+      indices[ii++] = base + 2;
+      indices[ii++] = base + 3;
     }
   }
-  const tex = new THREE.DataTexture(data, W, H);
-  tex.needsUpdate = true;
-  tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
-  tex.colorSpace = THREE.SRGBColorSpace; // color data, not linear
-  tex.magFilter = THREE.LinearFilter;
-  tex.minFilter = THREE.LinearFilter;
-  return tex;
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  geo.setIndex(new THREE.BufferAttribute(indices, 1));
+  return geo;
 }
+
 
 /**
  * Builds terrain into `scene`: a full-map ground quad + instanced tree cones
@@ -69,10 +88,9 @@ function makeGroundTexture(map: GridMap): THREE.Texture {
 export function buildTerrain(map: GridMap, scene: THREE.Scene): TerrainRender {
   // ground
   const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(MAP_SIZE, MAP_SIZE),
-    new THREE.MeshStandardMaterial({ map: makeGroundTexture(map) })
+    buildGroundGeometry(map),
+    new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.85 })
   );
-  ground.rotation.x = -Math.PI / 2;
   ground.position.y = 0;
   scene.add(ground);
 
@@ -98,7 +116,10 @@ export function buildTerrain(map: GridMap, scene: THREE.Scene): TerrainRender {
   for (let y = 0; y < map.size; y++) {
     for (let x = 0; x < map.size; x++) {
       if (map.tileAt(x, y) !== Tile.Trees) continue;
+      const v = ((x * 7 + y * 13) % 100) / 100;
       dummy.position.set(x, 0.8, y);
+      dummy.scale.set(0.8 + v * 0.7, 0.9 + v * 0.5, 0.8 + v * 0.7);
+      dummy.rotation.y = v * Math.PI * 2;
       dummy.updateMatrix();
       trees.setMatrixAt(ti++, dummy.matrix);
     }

@@ -12,6 +12,8 @@ export class Entity {
   maxHp = 100;
   /** render/type discriminator: 'unit' | 'building' (set by subclasses) */
   kind?: string;
+  /** display/procedural model name (e.g. 'rifleman', 'foundry') */
+  kindName = '';
 
   constructor(pos: { x: number; y: number }, radius: number, team: number, facing = 0) {
     this.pos = { ...pos };

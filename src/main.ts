@@ -17,7 +17,9 @@ if (!app) throw new Error('missing #app mount');
 
 // --- game + renderer ---
 const seed = Number(new URLSearchParams(location.search).get('seed') ?? 12345);
+const params = new URLSearchParams(location.search);
 const game = new Game(seed);
+if (params.get('reveal') === '1') game.fog.revealAll(0); // dev/screenshot: show terrain
 game.aiEnabled = true; // skirmish: Thornkin opponent
 const renderer = new Renderer(app, game);
 setupGame();
