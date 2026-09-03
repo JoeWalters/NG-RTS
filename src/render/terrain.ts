@@ -89,7 +89,7 @@ export function buildTerrain(map: GridMap, scene: THREE.Scene): TerrainRender {
   // ground
   const ground = new THREE.Mesh(
     buildGroundGeometry(map),
-    new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.85 })
+    new THREE.MeshBasicMaterial({ vertexColors: true })
   );
   ground.position.y = 0;
   scene.add(ground);
